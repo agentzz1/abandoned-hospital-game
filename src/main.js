@@ -29,7 +29,7 @@ const gameState = {
   exitUnlocked: false,
   exitOpen: false,
   win: false,
-  message: "Erkunde das Haus und finde die Schluessel!",
+  message: "Erkunde das Krankenhaus und finde die Schluessel.",
   elapsed: 0,
   notesRead: 0,
   jumpscareTimer: 15,
@@ -37,18 +37,18 @@ const gameState = {
 };
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x1a1520);
-scene.fog = new THREE.FogExp2(0x1a1520, 0.006);
+scene.background = new THREE.Color(0x0a0c10);
+scene.fog = new THREE.FogExp2(0x0a0c10, 0.018);
 
-const camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 0.1, 100);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
 
-const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance", stencil: false, depth: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance", stencil: false, depth: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 3.0;
+renderer.toneMappingExposure = 1.2;
 if ("outputColorSpace" in renderer) {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 }
@@ -62,17 +62,19 @@ const level = new Level(scene);
 const player = new Player(camera, document.body, scene, level.walls, audioManager, ui, gameState);
 const interaction = new Interaction(camera, scene, player, audioManager, level, gameState, ui, refreshUi);
 
-// Flashlight - warm golden light
-const flashlight = new THREE.PointLight(0xffe4a8, 15.0, 30, 1.5);
-flashlight.position.set(0, 1.6, -0.5);
-scene.add(flashlight);
+// Flashlight - realistic warm white
+const flashlight = new THREE.SpotLight(0xfff5e0, 18.0, 30, Math.PI / 5, 0.4, 1.5);
+flashlight.position.set(0, 0, 0);
+flashlight.target.position.set(0, 0, -1);
+camera.add(flashlight);
+camera.add(flashlight.target);
 
-const fillLight = new THREE.PointLight(0xffd4e8, 3.0, 25, 2);
-fillLight.position.set(0, 1.7, 0);
-scene.add(fillLight);
+const fillLight = new THREE.PointLight(0xdde8ff, 1.5, 20, 2);
+fillLight.position.set(0, 0.1, 0);
+camera.add(fillLight);
 
 let flashlightFlickerTimer = 0;
-let flashlightBaseIntensity = 15.0;
+let flashlightBaseIntensity = 18.0;
 let lastFrameTime = performance.now();
 let simulationTime = 0;
 
@@ -170,8 +172,8 @@ function refreshUi() {
 }
 
 function describeObjective() {
-  if (gameState.win) return "Geschafft!";
-  if (gameState.objective === "escape") return "Zur magischen Tuere!";
+  if (gameState.win) return "Du bist entkommen!";
+  if (gameState.objective === "escape") return "Zum Ausgang rennen";
   const total = level.keys ? level.keys.length : 2;
   const collected = gameState.keysCollected ? gameState.keysCollected.length : 0;
   return "Schluessel finden (" + collected + "/" + total + ")";
@@ -180,8 +182,16 @@ function describeObjective() {
 function describeStatus() {
   const total = level.keys ? level.keys.length : 2;
   const collected = gameState.keysCollected ? gameState.keysCollected.length : 0;
+  const keyStatus = collected >= total ? "Alle Schluessel" : collected + "/" + total + " Schluessel";
+  const exitStatus = level.exitDoor?.userData?.isOpen ? "Ausgang offen" : level.exitDoor?.userData?.locked ? "Ausgang zu" : "Ausgang entriegelt";
+  return gameState.message + " | " + keyStatus + " | " + exitStatus;
+}
+
+function describeStatus() {
+  const total = level.keys ? level.keys.length : 2;
+  const collected = gameState.keysCollected ? gameState.keysCollected.length : 0;
   const keyStatus = collected >= total ? "Alle Schluessel!" : collected + "/" + total + " Schluessel";
-  const exitStatus = level.exitDoor?.userData?.isOpen ? "Tuere offen!" : level.exitDoor?.userData?.locked ? "Tuere zu" : "Tuere auf";
+  const exitStatus = level.exitDoor?.userData?.isOpen ? "Ausgang offen" : level.exitDoor?.userData?.locked ? "Ausgang zu" : "Ausgang entriegelt";
   return gameState.message + " | " + keyStatus + " | " + exitStatus;
 }
 
@@ -217,18 +227,12 @@ function stepSimulation(deltaSeconds) {
     player.update(deltaSeconds);
     interaction.update();
 
-    // Update flashlight position to follow camera
-    flashlight.position.copy(camera.position);
-    flashlight.position.y -= 0.1;
-    fillLight.position.copy(camera.position);
-    fillLight.position.y += 0.1;
-
     // Flashlight flicker
     flashlightFlickerTimer -= deltaSeconds;
-    if (flashlightFlickerTimer <= 0) flashlightFlickerTimer = 2 + Math.random() * 6;
-    flashlight.intensity = flashlightFlickerTimer < 0.15
-      ? flashlightBaseIntensity * (0.3 + Math.random() * 0.4)
-      : flashlightBaseIntensity + Math.sin(simulationTime * 3) * 0.5;
+    if (flashlightFlickerTimer <= 0) flashlightFlickerTimer = 3 + Math.random() * 8;
+    flashlight.intensity = flashlightFlickerTimer < 0.12
+      ? flashlightBaseIntensity * (0.4 + Math.random() * 0.3)
+      : flashlightBaseIntensity + Math.sin(simulationTime * 2.5) * 0.4;
   }
 
   level.update(deltaSeconds, simulationTime);

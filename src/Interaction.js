@@ -101,8 +101,8 @@ export class Interaction {
         const collected = this.level.keys ? this.level.keys.filter(k => k.userData.collected).length : 0;
         const total = this.level.keys ? this.level.keys.length : 0;
         this.gameState.message = collected < total
-          ? `Noch ${total - collected} Schluessel fehlen!`
-          : 'Die Tuere ist verschlossen.';
+          ? `Noch ${total - collected} Schluessel fehlen.`
+          : 'Der Ausgang ist verschlossen.';
         this.refreshUi();
         return;
       }
@@ -110,7 +110,7 @@ export class Interaction {
       if (!data.isOpen && this.level.openExitDoor()) {
         this.audioManager.playVictory();
         this.gameState.exitOpen = true;
-        this.gameState.message = 'Die Tuere ist offen! Du hast es geschafft!';
+        this.gameState.message = 'Der Ausgang ist offen. Du entkommst!';
         this.refreshUi();
         this.winGame();
       }
@@ -183,8 +183,8 @@ export class Interaction {
       this.gameState.hasKey = true;
       this.gameState.exitUnlocked = true;
       this.gameState.objective = 'escape';
-      this.gameState.message = 'Alle Schluessel gefunden! Finde die Tuere!';
-      if (window.showNotification) window.showNotification('Alle Schluessel! Finde die Tuere!');
+      this.gameState.message = 'Alle Schluessel gefunden! Gehe zum Ausgang.';
+      if (window.showNotification) window.showNotification('Alle Schluessel! Zum Ausgang!');
     } else {
       this.gameState.message = `${keyData.userData.name} gefunden. (${collected}/${total})`;
     }

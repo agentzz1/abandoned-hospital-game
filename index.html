@@ -3,15 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Schatzsuche Haus</title>
+    <title>Verlassenes Krankenhaus</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
       :root {
-        --bg: #1a1520; --text: #f0e8ff; --muted: #b8a8d0;
-        --accent: #ffaa55; --accent-2: #ff77aa; --accent-green: #66ee88;
-        --border: rgba(255,200,100,0.15); --shadow: 0 24px 60px rgba(0,0,0,0.3);
-        --glow-blue: 0 0 20px rgba(255,170,85,0.3); --glow-green: 0 0 20px rgba(102,238,136,0.3);
+        --bg: #050608; --text: #d8dce5; --muted: #6b7585;
+        --accent: #b8c8e0; --accent-2: #a0b0d0; --accent-green: #80c090;
+        --border: rgba(255,255,255,0.06); --shadow: 0 24px 60px rgba(0,0,0,0.5);
+        --glow-blue: 0 0 15px rgba(184,200,224,0.2); --glow-green: 0 0 15px rgba(128,192,144,0.2);
       }
       html, body { width:100%; height:100%; margin:0; overflow:hidden; background:var(--bg); color:var(--text); font-family:"Inter",sans-serif; -webkit-font-smoothing:antialiased; }
       body { position:relative; cursor:default; }
@@ -118,7 +118,7 @@
         </div>
         <div class="hud-card">
           <span class="hud-label">Status</span>
-          <span class="hud-value status" id="status-text">Erkunde das Haus!</span>
+          <span class="hud-value status" id="status-text">Erkunde das Krankenhaus.</span>
         </div>
       </div>
 
@@ -141,8 +141,8 @@
       <!-- Brief intro overlay -->
       <div id="intro-overlay">
         <div id="intro-card">
-          <h2>Schatzsuche Haus</h2>
-          <p>Finde 2 magische Schluessel! Oeffne die Tuere und entdecke was dahinter liegt!</p>
+          <h2>Verlassenes Krankenhaus</h2>
+          <p>Finde 2 Schluessel. Oeffne den Ausgang. Entkomme.</p>
           <div class="keys">
             <div class="key-hint"><strong>WASD</strong> laufen</div>
             <div class="key-hint"><strong>Pfeiltasten</strong> schauen</div>
@@ -165,9 +165,9 @@
       <!-- Win overlay -->
       <div id="win-overlay">
         <div id="win-card">
-          <p class="eyebrow">Geschafft!</p>
+          <p class="eyebrow">Flucht gelungen</p>
           <h2 class="modal-title">Du bist entkommen!</h2>
-          <p id="win-message">Super! Du hast alle Schluessel gefunden!</p>
+          <p id="win-message">Das Krankenhaus liegt hinter dir.</p>
           <div id="win-stats">
             <div class="stat-row"><span class="stat-label">Zeit</span><span class="stat-value" id="stat-time">--:--</span></div>
             <div class="stat-row"><span class="stat-label">Notizen gelesen</span><span class="stat-value" id="stat-notes">0</span></div>
