@@ -187,56 +187,7 @@ function describeStatus() {
   return gameState.message + " | " + keyStatus + " | " + exitStatus;
 }
 
-function describeStatus() {
-  const total = level.keys ? level.keys.length : 2;
-  const collected = gameState.keysCollected ? gameState.keysCollected.length : 0;
-  const keyStatus = collected >= total ? "Alle Schluessel!" : collected + "/" + total + " Schluessel";
-  const exitStatus = level.exitDoor?.userData?.isOpen ? "Ausgang offen" : level.exitDoor?.userData?.locked ? "Ausgang zu" : "Ausgang entriegelt";
-  return gameState.message + " | " + keyStatus + " | " + exitStatus;
-}
-
-function updateCompass() {
-  let targetX, targetZ, label;
-  if (gameState.win) { window._compassAngle = 0; window._compassLabel = "✓"; return; }
-  if (level.keys && !gameState.hasKey) {
-    const next = level.keys.find(k => !k.userData.collected);
-    if (next) {
-      targetX = next.position.x; targetZ = next.position.z;
-      label = next.userData.name + " (" + Math.round(Math.sqrt((targetX-camera.position.x)**2 + (targetZ-camera.position.z)**2)) + "m)";
-    }
-  }
-  if (gameState.hasKey && level.exitDoor) {
-    targetX = level.exitDoor.position.x; targetZ = level.exitDoor.position.z;
-    label = "Ausgang (" + Math.round(Math.sqrt((targetX-camera.position.x)**2 + (targetZ-camera.position.z)**2)) + "m)";
-  }
-  if (targetX != null) {
-    const dx = targetX - camera.position.x, dz = targetZ - camera.position.z;
-    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
-    forward.y = 0; forward.normalize();
-    const toTarget = new THREE.Vector3(dx, 0, dz).normalize();
-    window._compassAngle = Math.atan2(forward.x * toTarget.z - forward.z * toTarget.x, forward.x * toTarget.x + forward.z * toTarget.z);
-    window._compassLabel = label;
-  }
-}
-
-function stepSimulation(deltaSeconds) {
-  simulationTime += deltaSeconds;
-  gameState.elapsed += deltaSeconds;
-
-  if (gameState.mode === "playing") {
-    player.update(deltaSeconds);
-    interaction.update();
-
-    // Flashlight flicker
-    flashlightFlickerTimer -= deltaSeconds;
-    if (flashlightFlickerTimer <= 0) flashlightFlickerTimer = 3 + Math.random() * 8;
-    flashlight.intensity = flashlightFlickerTimer < 0.12
-      ? flashlightBaseIntensity * (0.4 + Math.random() * 0.3)
-      : flashlightBaseIntensity + Math.sin(simulationTime * 2.5) * 0.4;
-  }
-
-  level.update(deltaSeconds, simulationTime);
-  refreshUi();
+refreshUi();
 }
 
 function renderFrame() {
