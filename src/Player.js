@@ -36,15 +36,11 @@ export class Player {
   }
 
   get isLockedOrDragging() {
-    return this._lookLeft || this._lookRight || this._lookUp || this._lookDown || this.moveForward || this.moveBackward || this.moveLeft || this.moveRight;
+    return this.moveForward || this.moveBackward || this.moveLeft || this.moveRight;
   }
 
   _setupInput() {
-    this._lookLeft = false;
-    this._lookRight = false;
-    this._lookUp = false;
-    this._lookDown = false;
-    this._lookSpeed = 2.5; // radians per second
+    this._lookStep = 0.04; // radians per keypress (~2.3 degrees)
 
     const onKeyDown = (event) => {
       switch (event.code) {
@@ -52,10 +48,28 @@ export class Player {
         case "KeyA": this.moveLeft = true; break;
         case "KeyS": this.moveBackward = true; break;
         case "KeyD": this.moveRight = true; break;
-        case "ArrowLeft": this._lookLeft = true; event.preventDefault(); break;
-        case "ArrowRight": this._lookRight = true; event.preventDefault(); break;
-        case "ArrowUp": this._lookUp = true; event.preventDefault(); break;
-        case "ArrowDown": this._lookDown = true; event.preventDefault(); break;
+        case "ArrowLeft":
+          this._yaw += this._lookStep;
+          this.camera.quaternion.setFromEuler(new THREE.Euler(this._pitch, this._yaw, 0, 'YXZ'));
+          event.preventDefault();
+          break;
+        case "ArrowRight":
+          this._yaw -= this._lookStep;
+          this.camera.quaternion.setFromEuler(new THREE.Euler(this._pitch, this._yaw, 0, 'YXZ'));
+          event.preventDefault();
+          break;
+        case "ArrowUp":
+          this._pitch += this._lookStep;
+          this._pitch = Math.min(this._pitch, Math.PI / 2 - 0.01);
+          this.camera.quaternion.setFromEuler(new THREE.Euler(this._pitch, this._yaw, 0, 'YXZ'));
+          event.preventDefault();
+          break;
+        case "ArrowDown":
+          this._pitch -= this._lookStep;
+          this._pitch = Math.max(this._pitch, -Math.PI / 2 + 0.01);
+          this.camera.quaternion.setFromEuler(new THREE.Euler(this._pitch, this._yaw, 0, 'YXZ'));
+          event.preventDefault();
+          break;
         case "ShiftLeft": case "ShiftRight": this.isSprinting = true; break;
         case "ControlLeft": case "KeyC":
           this.isCrouched = true;
@@ -70,10 +84,6 @@ export class Player {
         case "KeyA": this.moveLeft = false; break;
         case "KeyS": this.moveBackward = false; break;
         case "KeyD": this.moveRight = false; break;
-        case "ArrowLeft": this._lookLeft = false; break;
-        case "ArrowRight": this._lookRight = false; break;
-        case "ArrowUp": this._lookUp = false; break;
-        case "ArrowDown": this._lookDown = false; break;
         case "ShiftLeft": case "ShiftRight": this.isSprinting = false; break;
         case "ControlLeft": case "KeyC":
           this.isCrouched = false;
@@ -87,16 +97,6 @@ export class Player {
   }
 
   update(delta) {
-    // Keyboard look (arrow keys)
-    if (this._lookLeft) this._yaw += this._lookSpeed * delta;
-    if (this._lookRight) this._yaw -= this._lookSpeed * delta;
-    if (this._lookUp) this._pitch += this._lookSpeed * delta;
-    if (this._lookDown) this._pitch -= this._lookSpeed * delta;
-    this._pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, this._pitch));
-    if (this._lookLeft || this._lookRight || this._lookUp || this._lookDown) {
-      this.camera.quaternion.setFromEuler(new THREE.Euler(this._pitch, this._yaw, 0, 'YXZ'));
-    }
-
     // Velocity damping
     this.velocity.x -= this.velocity.x * 10.0 * delta;
     this.velocity.z -= this.velocity.z * 10.0 * delta;
