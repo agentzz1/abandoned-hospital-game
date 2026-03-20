@@ -131,7 +131,7 @@ export class Interaction {
     this.ui.prompt.style.display = 'none';
     this.ui.instructions.style.display = 'none';
     this.ui.crosshair.style.display = 'none';
-    this.player.controls.unlock();
+    document.exitPointerLock();
     this.refreshUi();
   }
 
@@ -140,7 +140,7 @@ export class Interaction {
     this.audioManager.playRustle();
     this.ui.noteOverlay.style.display = 'none';
     this.gameState.mode = 'playing';
-    this.player.controls.lock();
+    this.player.lock();
     this.refreshUi();
   }
 
@@ -160,7 +160,7 @@ export class Interaction {
     if (statTime) statTime.textContent = `${mins}:${secs}`;
     if (statNotes) statNotes.textContent = this.gameState.notesRead || 0;
 
-    this.player.controls.unlock();
+    document.exitPointerLock();
     this.refreshUi();
   }
 

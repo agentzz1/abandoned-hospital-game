@@ -76,7 +76,7 @@ let simulationTime = 0;
 
 // Auto-start
 setTimeout(() => {
-  player.controls.lock();
+  player.lock();
   audioManager.init();
   ui.instructions.style.display = "none";
   ui.crosshair.style.display = "block";
@@ -97,25 +97,26 @@ document.addEventListener("keydown", onGlobalKeyDown, true);
 ui.closeNote.addEventListener("click", () => interaction.closeNote());
 ui.restartButton.addEventListener("click", restartGame);
 
-player.controls.addEventListener("lock", () => {
-  ui.instructions.style.display = "none";
-  ui.crosshair.style.display = "block";
-});
-
-player.controls.addEventListener("unlock", () => {
-  if (gameState.mode === "note" || gameState.mode === "won") {
-    ui.crosshair.style.display = "none";
-    return;
-  }
-  if (gameState.mode === "playing") {
-    gameState.mode = "paused";
-  }
-  setTimeout(() => {
-    if (gameState.mode === "paused") {
-      gameState.mode = "playing";
-      player.controls.lock();
+document.addEventListener("pointerlockchange", () => {
+  const locked = document.pointerLockElement === document.body;
+  if (locked) {
+    ui.instructions.style.display = "none";
+    ui.crosshair.style.display = "block";
+  } else {
+    if (gameState.mode === "note" || gameState.mode === "won") {
+      ui.crosshair.style.display = "none";
+      return;
     }
-  }, 50);
+    if (gameState.mode === "playing") {
+      gameState.mode = "paused";
+    }
+    setTimeout(() => {
+      if (gameState.mode === "paused") {
+        gameState.mode = "playing";
+        player.lock();
+      }
+    }, 50);
+  }
 });
 
 refreshUi();

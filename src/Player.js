@@ -1,10 +1,9 @@
 import * as THREE from 'three';
-import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 
 export class Player {
   constructor(camera, domElement, scene, walls, audioManager, ui, gameState) {
     this.camera = camera;
-    this.controls = new PointerLockControls(camera, domElement);
+    this.domElement = domElement;
     this.walls = walls;
     this.audioManager = audioManager;
     this.ui = ui;
@@ -26,11 +25,101 @@ export class Player {
     this.moveRight = false;
     this.isSprinting = false;
 
+    this.isLocked = false;
+    this.isDragging = false;
+    this._dragStartX = 0;
+    this._dragStartY = 0;
+    this._yaw = 0;
+    this._pitch = 0;
+    this._sensitivity = 0.002;
+
     this._setupInput();
+    this._setupPointerLock();
+    this._setupDragLook();
     this.camera.position.set(0, 1.6, 0);
     this._baseY = 1.6;
     this._baseRoll = 0;
     this._headBobX = 0;
+  }
+
+  _setupPointerLock() {
+    const onPointerLockChange = () => {
+      this.isLocked = document.pointerLockElement === this.domElement;
+    };
+    document.addEventListener('pointerlockchange', onPointerLockChange);
+
+    const onMouseMove = (e) => {
+      if (!this.isLocked) return;
+      this._yaw -= e.movementX * this._sensitivity;
+      this._pitch -= e.movementY * this._sensitivity;
+      this._pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, this._pitch));
+      this.camera.quaternion.setFromEuler(new THREE.Euler(this._pitch, this._yaw, 0, 'YXZ'));
+    };
+    document.addEventListener('mousemove', onMouseMove);
+  }
+
+  _setupDragLook() {
+    // Mouse drag for trackpad users
+    this.domElement.addEventListener('mousedown', (e) => {
+      if (e.button === 0 && !this.isLocked) {
+        this.isDragging = true;
+        this._dragStartX = e.clientX;
+        this._dragStartY = e.clientY;
+        this.domElement.style.cursor = 'grabbing';
+      }
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!this.isDragging) return;
+      const dx = e.clientX - this._dragStartX;
+      const dy = e.clientY - this._dragStartY;
+      this._dragStartX = e.clientX;
+      this._dragStartY = e.clientY;
+      this._yaw -= dx * this._sensitivity * 1.5;
+      this._pitch -= dy * this._sensitivity * 1.5;
+      this._pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, this._pitch));
+      this.camera.quaternion.setFromEuler(new THREE.Euler(this._pitch, this._yaw, 0, 'YXZ'));
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (this.isDragging) {
+        this.isDragging = false;
+        this.domElement.style.cursor = '';
+      }
+    });
+
+    // Touch support for mobile/trackpad
+    this.domElement.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        this.isDragging = true;
+        this._dragStartX = e.touches[0].clientX;
+        this._dragStartY = e.touches[0].clientY;
+      }
+    }, { passive: true });
+
+    this.domElement.addEventListener('touchmove', (e) => {
+      if (!this.isDragging || e.touches.length !== 1) return;
+      const dx = e.touches[0].clientX - this._dragStartX;
+      const dy = e.touches[0].clientY - this._dragStartY;
+      this._dragStartX = e.touches[0].clientX;
+      this._dragStartY = e.touches[0].clientY;
+      this._yaw -= dx * this._sensitivity * 1.5;
+      this._pitch -= dy * this._sensitivity * 1.5;
+      this._pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, this._pitch));
+      this.camera.quaternion.setFromEuler(new THREE.Euler(this._pitch, this._yaw, 0, 'YXZ'));
+    }, { passive: true });
+
+    this.domElement.addEventListener('touchend', () => {
+      this.isDragging = false;
+    }, { passive: true });
+  }
+
+  lock() {
+    this.domElement.requestPointerLock?.();
+  }
+
+  get isLockedOrDragging() {
+    return this.isLocked || this.isDragging;
   }
 
   _setupInput() {
@@ -136,12 +225,16 @@ export class Player {
 
     // Movement with collision
     const prevPos = this.camera.position.clone();
-    this.controls.moveRight(-this.velocity.x * delta);
-    this.controls.moveForward(-this.velocity.z * delta);
+    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
+    forward.y = 0; forward.normalize();
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion);
+    right.y = 0; right.normalize();
+    this.camera.position.addScaledVector(right, -this.velocity.x * delta);
+    this.camera.position.addScaledVector(forward, -this.velocity.z * delta);
 
     // Apply head bob offset after movement (local X axis)
-    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion);
-    this.camera.position.addScaledVector(right, this._headBobX);
+    const rightAxis = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion);
+    this.camera.position.addScaledVector(rightAxis, this._headBobX);
 
     const collided = this._resolveCollision(prevPos);
     if (collided) {
