@@ -30,6 +30,7 @@ export class Player {
     this.camera.position.set(0, 1.6, 0);
     this._baseY = 1.6;
     this._baseRoll = 0;
+    this._headBobX = 0;
   }
 
   _setupInput() {
@@ -115,7 +116,7 @@ export class Player {
       this._baseRoll += (targetRoll - this._baseRoll) * 5 * delta;
 
       this.camera.position.y = this._baseY + bobY + shakeY;
-      this.camera.position.x = bobX + shakeX;
+      this._headBobX = bobX + shakeX;
       this.camera.rotation.z = this._baseRoll;
 
     } else {
@@ -128,7 +129,7 @@ export class Player {
 
       // Smooth return to base position
       this.camera.position.y += (this._baseY + breathY - this.camera.position.y) * 8 * delta;
-      this.camera.position.x += (0 - this.camera.position.x) * 8 * delta;
+      this._headBobX += (0 - this._headBobX) * 8 * delta;
       this._baseRoll += (0 - this._baseRoll) * 8 * delta;
       this.camera.rotation.z = this._baseRoll;
     }
@@ -137,6 +138,10 @@ export class Player {
     const prevPos = this.camera.position.clone();
     this.controls.moveRight(-this.velocity.x * delta);
     this.controls.moveForward(-this.velocity.z * delta);
+
+    // Apply head bob offset after movement (local X axis)
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion);
+    this.camera.position.addScaledVector(right, this._headBobX);
 
     const collided = this._resolveCollision(prevPos);
     if (collided) {
@@ -152,6 +157,7 @@ export class Player {
     this.breathTimer = 0;
     this.footstepShake = 0;
     this._baseRoll = 0;
+    this._headBobX = 0;
     this.isCrouched = false;
     this.isSprinting = false;
     this.moveForward = false;
