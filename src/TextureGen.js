@@ -231,7 +231,7 @@ export function generateTileNormal(size = 512, opts = {}) {
 }
 
 export function createPBRMaterial(type, opts = {}) {
-  const size = opts.size || 512;
+  const size = opts.size || 256;
   const repeat = opts.repeat;
   const seed = opts.seed || Math.floor(Math.random() * 1000);
   switch (type) {

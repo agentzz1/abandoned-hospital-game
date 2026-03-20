@@ -131,8 +131,8 @@ export class Level {
     const sunLight = new THREE.DirectionalLight(0xffddaa, 1.5);
     sunLight.position.set(-5, 8, 12);
     sunLight.castShadow = true;
-    sunLight.shadow.mapSize.width = 2048;
-    sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.mapSize.width = 1024;
+    sunLight.shadow.mapSize.height = 1024;
     sunLight.shadow.camera.near = 0.5;
     sunLight.shadow.camera.far = 30;
     sunLight.shadow.camera.left = -15;
@@ -157,9 +157,8 @@ export class Level {
     this._lamp(0, 2.95, 0);
     this._lamp(0, 2.95, 10);
 
-    // Volumetric light rays
+    // Volumetric light rays - fewer for performance
     this._volumetricRay(-2, 2.95, -4, 0.8, 4, 0xddeeff, 0.025);
-    this._volumetricRay(2, 2.95, 6, 0.6, 3.5, 0xffeedd, 0.02);
 
     // Enhanced dust particles
     this._dust();
@@ -216,7 +215,7 @@ export class Level {
 
   _light(x, y, z, color, intensity, distance, seed, shadow) {
     const l = new THREE.PointLight(color, intensity, distance); l.position.set(x, y, z);
-    if (shadow) { l.castShadow = true; l.shadow.mapSize.width = 1024; l.shadow.mapSize.height = 1024; l.shadow.bias = -0.001; }
+    if (shadow) { l.castShadow = true; l.shadow.mapSize.width = 512; l.shadow.mapSize.height = 512; l.shadow.bias = -0.001; }
     this.scene.add(l); this.lights.push({ light: l, baseIntensity: intensity, seed });
   }
 
@@ -254,7 +253,7 @@ export class Level {
   }
 
   _dust() {
-    const n = 800;
+    const n = 400;
     const mat = new THREE.PointsMaterial({
       color: 0xffeebb,
       size: 0.04,

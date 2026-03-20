@@ -2,12 +2,7 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js';
-import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
 import { FilmPass } from 'three/addons/postprocessing/FilmPass.js';
-import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
-import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-import { VignetteShader } from 'three/addons/shaders/VignetteShader.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 export class PostFX {
@@ -18,71 +13,34 @@ export class PostFX {
     this.renderPass = new RenderPass(scene, camera);
     this.composer.addPass(this.renderPass);
 
-    // SSAO - Lighter ambient occlusion
-    this.ssaoPass = new SSAOPass(scene, camera, width >> 1, height >> 1);
-    this.ssaoPass.kernelRadius = 0.2;
-    this.ssaoPass.minDistance = 0.001;
-    this.ssaoPass.maxDistance = 0.8;
-    this.ssaoPass.output = SSAOPass.OUTPUT.Default;
-    this.composer.addPass(this.ssaoPass);
-
-    // Bloom - Magical glow
+    // Bloom - magical glow
     this.bloomPass = new UnrealBloomPass(
       new THREE.Vector2(width, height),
-      0.8,   // intensity
-      1.0,   // radius
-      0.3    // threshold
+      0.7,   // intensity
+      0.9,   // radius
+      0.35   // threshold
     );
     this.composer.addPass(this.bloomPass);
 
-    // Bokeh DOF - Depth of Field
-    this.bokehPass = new BokehPass(scene, camera, {
-      focus: 8.0,
-      aperture: 0.00008,
-      maxblur: 0.004,
-    });
-    this.composer.addPass(this.bokehPass);
-
-    // Film Grain - subtle
-    this.filmPass = new FilmPass(0.15, false);
+    // Film Grain - very subtle
+    this.filmPass = new FilmPass(0.1, false);
     this.composer.addPass(this.filmPass);
-
-    // Vignette (GPU-based) - subtle
-    const vignettePass = new ShaderPass(VignetteShader);
-    vignettePass.uniforms["offset"].value = 1.0;
-    vignettePass.uniforms["darkness"].value = 0.8;
-    this.composer.addPass(vignettePass);
-
-    // SMAA Anti-Aliasing
-    this.smaaPass = new SMAAPass(width, height);
-    this.composer.addPass(this.smaaPass);
 
     // Output Pass (color space correction)
     this.outputPass = new OutputPass();
     this.composer.addPass(this.outputPass);
 
-    this.dofEnabled = true;
     this.time = 0;
   }
 
   setSize(width, height) {
     this.composer.setSize(width, height);
-    this.ssaoPass.setSize(width >> 1, height >> 1);
     this.bloomPass.setSize(width, height);
-    if (this.smaaPass) this.smaaPass.setSize(width, height);
   }
 
   render(delta) {
     this.time += delta;
-
-    // Animate film grain
     this.filmPass.uniforms["time"].value = this.time;
-
-    // Gentle DOF breathing effect
-    if (this.bokehPass && this.dofEnabled) {
-      this.bokehPass.uniforms["focus"].value = 8.0 + Math.sin(this.time * 0.3) * 2.0;
-    }
-
     this.composer.render();
   }
 }
