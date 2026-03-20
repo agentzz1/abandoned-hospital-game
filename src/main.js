@@ -36,7 +36,7 @@ const gameState = {
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x080a0e);
-scene.fog = new THREE.FogExp2(0x080a0e, 0.022);
+scene.fog = new THREE.FogExp2(0x080a0e, 0.012);
 
 const camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 0.1, 100);
 
@@ -46,7 +46,7 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.0;
+renderer.toneMappingExposure = 2.5;
 if ("outputColorSpace" in renderer) {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 }
@@ -61,18 +61,16 @@ const player = new Player(camera, document.body, scene, level.walls, audioManage
 const interaction = new Interaction(camera, scene, player, audioManager, level, gameState, ui, refreshUi);
 
 // Flashlight
-const flashlight = new THREE.SpotLight(0xf4fbff, 6.0, 28, Math.PI / 5, 0.35, 1.3);
-flashlight.position.set(0, 0, 0);
-flashlight.target.position.set(0, 0, -1);
-camera.add(flashlight);
-camera.add(flashlight.target);
+const flashlight = new THREE.PointLight(0xf4fbff, 20.0, 30, 1.5);
+flashlight.position.set(0, 1.6, -0.5);
+scene.add(flashlight);
 
-const fillLight = new THREE.PointLight(0xcde7ff, 0.4, 15, 2);
-fillLight.position.set(0, 0.1, 0);
-camera.add(fillLight);
+const fillLight = new THREE.PointLight(0xcde7ff, 2.0, 25, 2);
+fillLight.position.set(0, 1.7, 0);
+scene.add(fillLight);
 
 let flashlightFlickerTimer = 0;
-let flashlightBaseIntensity = 6.0;
+let flashlightBaseIntensity = 20.0;
 let lastFrameTime = performance.now();
 let simulationTime = 0;
 
@@ -262,12 +260,18 @@ function stepSimulation(deltaSeconds) {
     player.update(deltaSeconds);
     interaction.update();
 
+    // Update flashlight position to follow camera
+    flashlight.position.copy(camera.position);
+    flashlight.position.y -= 0.1;
+    fillLight.position.copy(camera.position);
+    fillLight.position.y += 0.1;
+
     // Flashlight flicker
     flashlightFlickerTimer -= deltaSeconds;
     if (flashlightFlickerTimer <= 0) flashlightFlickerTimer = 2 + Math.random() * 6;
     flashlight.intensity = flashlightFlickerTimer < 0.15
       ? flashlightBaseIntensity * (0.3 + Math.random() * 0.4)
-      : flashlightBaseIntensity + Math.sin(simulationTime * 3) * 0.3;
+      : flashlightBaseIntensity + Math.sin(simulationTime * 3) * 0.5;
 
     // Jumpscare timer
     gameState.jumpscareTimer -= deltaSeconds;

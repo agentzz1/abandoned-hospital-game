@@ -20,18 +20,18 @@ export class PostFX {
 
     // SSAO - Ambient Occlusion
     this.ssaoPass = new SSAOPass(scene, camera, width >> 1, height >> 1);
-    this.ssaoPass.kernelRadius = 0.6;
+    this.ssaoPass.kernelRadius = 0.3;
     this.ssaoPass.minDistance = 0.001;
-    this.ssaoPass.maxDistance = 0.15;
+    this.ssaoPass.maxDistance = 0.5;
     this.ssaoPass.output = SSAOPass.OUTPUT.Default;
     this.composer.addPass(this.ssaoPass);
 
     // Bloom - Lichtbluten
     this.bloomPass = new UnrealBloomPass(
       new THREE.Vector2(width, height),
-      0.4,   // intensity
-      0.6,   // radius
-      0.85   // threshold
+      0.6,   // intensity
+      0.8,   // radius
+      0.5    // threshold
     );
     this.composer.addPass(this.bloomPass);
 

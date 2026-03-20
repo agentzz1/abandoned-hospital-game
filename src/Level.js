@@ -125,8 +125,8 @@ export class Level {
     // ========== LIGHTING ==========
 
     // Ambient
-    this.scene.add(new THREE.AmbientLight(0xd4dce8, 0.15));
-    this.scene.add(new THREE.HemisphereLight(0x8899bb, 0x0a0c10, 0.2));
+    this.scene.add(new THREE.AmbientLight(0xd4dce8, 0.5));
+    this.scene.add(new THREE.HemisphereLight(0x8899bb, 0x0a0c10, 0.5));
 
     // Moonlight directional light
     const moonLight = new THREE.DirectionalLight(0x6688cc, 0.8);
@@ -224,8 +224,12 @@ export class Level {
   _lamp(x, y, z) {
     const mat = new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.5, metalness: 0.6 });
     const bulb = new THREE.MeshStandardMaterial({ color: 0xffeedd, emissive: 0xffddaa, emissiveIntensity: 0.6 });
-    this.scene.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.06, 0.25), mat), { position: new THREE.Vector3(x, y, z) }));
-    this.scene.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.02, 0.12), bulb), { position: new THREE.Vector3(x, y-0.04, z) }));
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.06, 0.25), mat);
+    frame.position.set(x, y, z);
+    this.scene.add(frame);
+    const bulbMesh = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.02, 0.12), bulb);
+    bulbMesh.position.set(x, y - 0.04, z);
+    this.scene.add(bulbMesh);
   }
 
   _volumetricRay(x, y, z, radius, height, color, opacity) {

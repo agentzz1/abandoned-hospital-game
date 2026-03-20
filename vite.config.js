@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-  base: '/abandoned-hospital-game/'
+  base: process.env.NODE_ENV === 'production' ? '/abandoned-hospital-game/' : '/'
 })
