@@ -213,6 +213,26 @@ function updateCompass() {
 
 refreshUi();
 
+function stepSimulation(deltaSeconds) {
+  simulationTime += deltaSeconds;
+  gameState.elapsed += deltaSeconds;
+
+  if (gameState.mode === "playing") {
+    player.update(deltaSeconds);
+    interaction.update();
+
+    // Flashlight flicker
+    flashlightFlickerTimer -= deltaSeconds;
+    if (flashlightFlickerTimer <= 0) flashlightFlickerTimer = 3 + Math.random() * 8;
+    flashlight.intensity = flashlightFlickerTimer < 0.12
+      ? flashlightBaseIntensity * (0.4 + Math.random() * 0.3)
+      : flashlightBaseIntensity + Math.sin(simulationTime * 2.5) * 0.4;
+  }
+
+  level.update(deltaSeconds, simulationTime);
+  refreshUi();
+}
+
 function renderFrame() {
   postFX.render(1/60);
 }
