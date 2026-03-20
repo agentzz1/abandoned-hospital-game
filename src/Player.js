@@ -238,7 +238,9 @@ export class Player {
 
     const collided = this._resolveCollision(prevPos);
     if (collided) {
-      this.velocity.set(0, 0, 0);
+      // Slide along walls instead of full stop
+      this.velocity.x *= 0.3;
+      this.velocity.z *= 0.3;
     }
   }
 

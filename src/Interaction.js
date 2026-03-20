@@ -35,7 +35,7 @@ export class Interaction {
     if (this.gameState.mode !== 'playing') {
       if (this.currentInteractable) {
         this.currentInteractable = null;
-        this.ui.prompt.style.display = 'none';
+        if (this.ui.prompt) this.ui.prompt.style.display = 'none';
       }
       return;
     }
@@ -55,12 +55,12 @@ export class Interaction {
     if (hovered) {
       if (this.currentInteractable !== hovered) {
         this.currentInteractable = hovered;
-        this.ui.prompt.style.display = 'block';
+        if (this.ui.prompt) this.ui.prompt.style.display = 'block';
       }
-      this.ui.prompt.textContent = `E - ${hovered.userData.prompt}`;
+      if (this.ui.prompt) this.ui.prompt.textContent = `E - ${hovered.userData.prompt}`;
     } else if (this.currentInteractable) {
       this.currentInteractable = null;
-      this.ui.prompt.style.display = 'none';
+      if (this.ui.prompt) this.ui.prompt.style.display = 'none';
     }
 
     // Auto-collect nearby keys
@@ -73,7 +73,7 @@ export class Interaction {
           const dx = px - key.position.x;
           const dy = py - key.position.y;
           const dz = pz - key.position.z;
-          if (dx * dx + dy * dy + dz * dz <= 36) { // 6.0 units radius
+          if (dx * dx + dy * dy + dz * dz <= 64) { // 8.0 units radius
             this._collectKey(key.userData.id);
           }
         }
@@ -126,11 +126,11 @@ export class Interaction {
     this.audioManager.playRustle();
     this.gameState.mode = 'note';
     this.gameState.notesRead = (this.gameState.notesRead || 0) + 1;
-    this.ui.noteOverlay.style.display = 'flex';
-    this.ui.noteText.textContent = text;
-    this.ui.prompt.style.display = 'none';
-    this.ui.instructions.style.display = 'none';
-    this.ui.crosshair.style.display = 'none';
+    if (this.ui.noteOverlay) this.ui.noteOverlay.style.display = 'flex';
+    if (this.ui.noteText) this.ui.noteText.textContent = text;
+    if (this.ui.prompt) this.ui.prompt.style.display = 'none';
+    if (this.ui.instructions) this.ui.instructions.style.display = 'none';
+    if (this.ui.crosshair) this.ui.crosshair.style.display = 'none';
     document.exitPointerLock();
     this.refreshUi();
   }
@@ -138,7 +138,7 @@ export class Interaction {
   closeNote() {
     if (this.gameState.mode !== 'note') return;
     this.audioManager.playRustle();
-    this.ui.noteOverlay.style.display = 'none';
+    if (this.ui.noteOverlay) this.ui.noteOverlay.style.display = 'none';
     this.gameState.mode = 'playing';
     this.player.lock();
     this.refreshUi();
@@ -147,9 +147,9 @@ export class Interaction {
   winGame() {
     this.gameState.mode = 'won';
     this.gameState.win = true;
-    this.ui.winOverlay.style.display = 'flex';
-    this.ui.instructions.style.display = 'none';
-    this.ui.crosshair.style.display = 'none';
+    if (this.ui.winOverlay) this.ui.winOverlay.style.display = 'flex';
+    if (this.ui.instructions) this.ui.instructions.style.display = 'none';
+    if (this.ui.crosshair) this.ui.crosshair.style.display = 'none';
 
     // Update win stats
     const elapsed = this.gameState.elapsed || 0;
@@ -192,7 +192,7 @@ export class Interaction {
       this.gameState.message = `${keyData.userData.name} gefunden. (${collected}/${total})`;
     }
 
-    this.ui.prompt.style.display = 'none';
+    if (this.ui.prompt) this.ui.prompt.style.display = 'none';
     this.currentInteractable = null;
     this.refreshUi();
   }
