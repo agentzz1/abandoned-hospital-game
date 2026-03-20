@@ -18,20 +18,20 @@ export class PostFX {
     this.renderPass = new RenderPass(scene, camera);
     this.composer.addPass(this.renderPass);
 
-    // SSAO - Ambient Occlusion
+    // SSAO - Lighter ambient occlusion
     this.ssaoPass = new SSAOPass(scene, camera, width >> 1, height >> 1);
-    this.ssaoPass.kernelRadius = 0.3;
+    this.ssaoPass.kernelRadius = 0.2;
     this.ssaoPass.minDistance = 0.001;
-    this.ssaoPass.maxDistance = 0.5;
+    this.ssaoPass.maxDistance = 0.8;
     this.ssaoPass.output = SSAOPass.OUTPUT.Default;
     this.composer.addPass(this.ssaoPass);
 
-    // Bloom - Lichtbluten
+    // Bloom - Magical glow
     this.bloomPass = new UnrealBloomPass(
       new THREE.Vector2(width, height),
-      0.6,   // intensity
-      0.8,   // radius
-      0.5    // threshold
+      0.8,   // intensity
+      1.0,   // radius
+      0.3    // threshold
     );
     this.composer.addPass(this.bloomPass);
 
@@ -43,14 +43,14 @@ export class PostFX {
     });
     this.composer.addPass(this.bokehPass);
 
-    // Film Grain
-    this.filmPass = new FilmPass(0.35, false);
+    // Film Grain - subtle
+    this.filmPass = new FilmPass(0.15, false);
     this.composer.addPass(this.filmPass);
 
-    // Vignette (GPU-based)
+    // Vignette (GPU-based) - subtle
     const vignettePass = new ShaderPass(VignetteShader);
-    vignettePass.uniforms["offset"].value = 0.95;
-    vignettePass.uniforms["darkness"].value = 1.4;
+    vignettePass.uniforms["offset"].value = 1.0;
+    vignettePass.uniforms["darkness"].value = 0.8;
     this.composer.addPass(vignettePass);
 
     // SMAA Anti-Aliasing

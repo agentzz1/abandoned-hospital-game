@@ -14,15 +14,15 @@ export class Level {
   }
 
   _build() {
-    // PBR Materials with procedural textures
-    const wall = createPBRMaterial("wall", { repeat: [3, 1.5], seed: 42 });
-    const metal = createPBRMaterial("metal", { seed: 100 });
-    const wood = createPBRMaterial("wood", { repeat: [2, 2], seed: 200 });
-    const paper = new THREE.MeshStandardMaterial({ color: 0xd5d0c0, roughness: 1, side: THREE.DoubleSide });
-    const fabric = new THREE.MeshStandardMaterial({ color: 0x4a6a5a, roughness: 0.95 });
-    const pipe = createPBRMaterial("metal", { seed: 300 });
-    const floorMat = createPBRMaterial("concrete", { repeat: [6, 6], seed: 500, baseR: 55, baseG: 58, baseB: 62 });
-    const ceilMat = createPBRMaterial("ceiling", { repeat: [4, 4], seed: 600 });
+    // Bright, colorful PBR Materials
+    const wall = createPBRMaterial("wall", { repeat: [3, 1.5], seed: 42, baseR: 160, baseG: 170, baseB: 185 });
+    const metal = createPBRMaterial("metal", { seed: 100, baseR: 140, baseG: 155, baseB: 170 });
+    const wood = createPBRMaterial("wood", { repeat: [2, 2], seed: 200, baseR: 140, baseG: 100, baseB: 65 });
+    const paper = new THREE.MeshStandardMaterial({ color: 0xf0e8d0, roughness: 1, side: THREE.DoubleSide });
+    const fabric = new THREE.MeshStandardMaterial({ color: 0x6a8a7a, roughness: 0.95 });
+    const pipe = createPBRMaterial("metal", { seed: 300, baseR: 130, baseG: 145, baseB: 160 });
+    const floorMat = createPBRMaterial("concrete", { repeat: [6, 6], seed: 500, baseR: 100, baseG: 105, baseB: 115 });
+    const ceilMat = createPBRMaterial("ceiling", { repeat: [4, 4], seed: 600, baseR: 180, baseG: 185, baseB: 195 });
     const tileMat = createPBRMaterial("tile", { repeat: [8, 8], seed: 700 });
 
     const H = 3;
@@ -88,7 +88,6 @@ export class Level {
     this._w(wall, 7, H, 0.3, 6.5, H/2, 12);
     this._b(metal, 2, 0.9, 0.8, 7, 0.45, 8.5, true);
     this._b(metal, 0.15, 1.5, 0.15, 5.5, 0.75, 7, true);
-    this._blood(7, 0.01, 10);
 
     // ========== EXIT CORRIDOR ==========
     this._w(wall, 0.3, H, 4, -1, H/2, 14);
@@ -108,7 +107,7 @@ export class Level {
     );
     note.position.set(-2.85, 1.5, -3); note.rotation.y = Math.PI / 2; note.receiveShadow = true;
     note.userData = { type: "note", prompt: "Notiz lesen",
-      text: "Hinweis:\n\n2 Schluessel versteckt.\nBLAU = linker Raum oben\nORANGE = rechter Raum unten\n\nAusgang = Norden (Gang hoch)\n\nM = Sound aus"
+      text: "Tipp:\n\n2 Schluessel versteckt!\nBLAU = linker Raum oben\nORANGE = rechter Raum unten\n\nDie magische Tuere ist im Norden!\n\nM = Sound aus"
     };
     this.scene.add(note);
 
@@ -124,13 +123,13 @@ export class Level {
 
     // ========== LIGHTING ==========
 
-    // Ambient
-    this.scene.add(new THREE.AmbientLight(0xd4dce8, 0.5));
-    this.scene.add(new THREE.HemisphereLight(0x8899bb, 0x0a0c10, 0.5));
+    // Ambient - bright and warm
+    this.scene.add(new THREE.AmbientLight(0xffeedd, 1.2));
+    this.scene.add(new THREE.HemisphereLight(0xaabbff, 0x554433, 0.8));
 
-    // Moonlight directional light
-    const moonLight = new THREE.DirectionalLight(0x6688cc, 0.8);
-    moonLight.position.set(-5, 8, 12);
+    // Warm sunlight from windows
+    const sunLight = new THREE.DirectionalLight(0xffddaa, 1.5);
+    sunLight.position.set(-5, 8, 12);
     moonLight.castShadow = true;
     moonLight.shadow.mapSize.width = 2048;
     moonLight.shadow.mapSize.height = 2048;
@@ -145,14 +144,14 @@ export class Level {
     this.scene.add(moonLight);
     this.moonLight = moonLight;
 
-    // Interior point lights
-    this._light(0, 2.7, 0, 0xe8f0ff, 3.0, 16, 0, true);
-    this._light(0, 2.7, 10, 0xe8f0ff, 3.0, 16, 0.5, true);
-    this._light(-6.5, 2.6, 0, 0xffddaa, 1.8, 10, 1, false);
-    this._light(6.5, 2.6, 0, 0xccccaa, 1.5, 10, 1.5, false);
-    this._light(-6.5, 2.6, 8.5, 0xeeddcc, 1.8, 10, 2, false);
-    this._light(6.5, 2.6, 8.5, 0xaaddff, 2.5, 12, 2.5, false);
-    this._light(0, 2.7, 14, 0x88ffaa, 3.0, 10, 0.8, false);
+    // Interior point lights - warm and colorful
+    this._light(0, 2.7, 0, 0xffeecc, 5.0, 20, 0, true);
+    this._light(0, 2.7, 10, 0xffeecc, 5.0, 20, 0.5, true);
+    this._light(-6.5, 2.6, 0, 0xffddaa, 3.0, 14, 1, false);
+    this._light(6.5, 2.6, 0, 0xccddaa, 2.5, 14, 1.5, false);
+    this._light(-6.5, 2.6, 8.5, 0xddeedd, 3.0, 14, 2, false);
+    this._light(6.5, 2.6, 8.5, 0xaaddff, 4.0, 16, 2.5, false);
+    this._light(0, 2.7, 14, 0xaaffcc, 4.0, 14, 0.8, false);
 
     // Lamps
     this._lamp(0, 2.95, 0);
@@ -198,7 +197,7 @@ export class Level {
       new THREE.MeshStandardMaterial({ color: 0x00aa00, emissive: 0x00aa00, emissiveIntensity: 0.8 }));
     sign.position.set(0, h/2+.15, 0); door.add(sign);
     door.userData = { type: "exitDoor", locked: true, isOpen: false, blocksMovement: true,
-      closedPosition: { x, y, z }, openPosition: { x: x-w/2, y, z: z-w/2 }, prompt: "Ausgang verschlossen" };
+      closedPosition: { x, y, z }, openPosition: { x: x-w/2, y, z: z-w/2 }, prompt: "Magische Tuere verschlossen" };
     this.exitDoor = door; this.scene.add(door); this.walls.push(door);
   }
 
@@ -255,12 +254,12 @@ export class Level {
   }
 
   _dust() {
-    const n = 1200;
+    const n = 800;
     const mat = new THREE.PointsMaterial({
-      color: 0xccccbb,
-      size: 0.03,
+      color: 0xffeebb,
+      size: 0.04,
       transparent: true,
-      opacity: 0.25,
+      opacity: 0.4,
       sizeAttenuation: true,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
@@ -293,7 +292,7 @@ export class Level {
   unlockExit() {
     if (!this.exitDoor) return;
     const d = this.exitDoor.userData;
-    d.locked = false; d.prompt = "Ausgang oeffnen";
+    d.locked = false; d.prompt = "Magische Tuere oeffnen";
     if (this.exitDoor.material.emissive) this.exitDoor.material.emissive.setHex(0x17201a);
   }
 
@@ -303,7 +302,7 @@ export class Level {
     d.isOpen = true; d.blocksMovement = false;
     this.exitDoor.position.set(d.openPosition.x, d.openPosition.y, d.openPosition.z);
     this.exitDoor.rotation.y = Math.PI/2;
-    d.prompt = "Ausgang offen";
+    d.prompt = "Magische Tuere offen";
     if (this.exitDoor.material.emissive) this.exitDoor.material.emissive.setHex(0x23301d);
     return true;
   }
@@ -316,7 +315,7 @@ export class Level {
     if (this.exitDoor) {
       const d = this.exitDoor.userData;
       d.locked = true; d.isOpen = false; d.blocksMovement = true;
-      d.prompt = "Ausgang verschlossen";
+      d.prompt = "Magische Tuere verschlossen";
       this.exitDoor.position.set(d.closedPosition.x, d.closedPosition.y, d.closedPosition.z);
       this.exitDoor.rotation.y = 0;
       if (this.exitDoor.material.emissive) this.exitDoor.material.emissive.setHex(0);

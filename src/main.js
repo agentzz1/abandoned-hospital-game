@@ -29,7 +29,7 @@ const gameState = {
   exitUnlocked: false,
   exitOpen: false,
   win: false,
-  message: "Erkunde das Krankenhaus und finde die Schluessel.",
+  message: "Erkunde das Haus und finde die Schluessel!",
   elapsed: 0,
   notesRead: 0,
   jumpscareTimer: 15,
@@ -37,8 +37,8 @@ const gameState = {
 };
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x080a0e);
-scene.fog = new THREE.FogExp2(0x080a0e, 0.012);
+scene.background = new THREE.Color(0x1a1520);
+scene.fog = new THREE.FogExp2(0x1a1520, 0.008);
 
 const camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 0.1, 100);
 
@@ -48,7 +48,7 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 2.5;
+renderer.toneMappingExposure = 3.0;
 if ("outputColorSpace" in renderer) {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 }
@@ -62,17 +62,17 @@ const level = new Level(scene);
 const player = new Player(camera, document.body, scene, level.walls, audioManager, ui, gameState);
 const interaction = new Interaction(camera, scene, player, audioManager, level, gameState, ui, refreshUi);
 
-// Flashlight
-const flashlight = new THREE.PointLight(0xf4fbff, 20.0, 30, 1.5);
+// Flashlight - warm golden light
+const flashlight = new THREE.PointLight(0xffe4a8, 15.0, 30, 1.5);
 flashlight.position.set(0, 1.6, -0.5);
 scene.add(flashlight);
 
-const fillLight = new THREE.PointLight(0xcde7ff, 2.0, 25, 2);
+const fillLight = new THREE.PointLight(0xffd4e8, 3.0, 25, 2);
 fillLight.position.set(0, 1.7, 0);
 scene.add(fillLight);
 
 let flashlightFlickerTimer = 0;
-let flashlightBaseIntensity = 20.0;
+let flashlightBaseIntensity = 15.0;
 let lastFrameTime = performance.now();
 let simulationTime = 0;
 
@@ -148,35 +148,12 @@ function showNotification(text) {
   }, 1500);
 }
 
+// Fun sparkle effect on key pickup
 function triggerKeyFlash() {
   const flash = document.createElement("div");
   flash.className = "key-flash";
   document.getElementById("ui").appendChild(flash);
   setTimeout(() => flash.remove(), 600);
-  document.body.classList.add("shake");
-  setTimeout(() => document.body.classList.remove("shake"), 300);
-}
-
-// Jumpscare system
-function triggerJumpscare() {
-  gameState.jumpscareCount++;
-  const overlay = document.createElement("div");
-  overlay.className = "jumpscare-overlay";
-  document.body.appendChild(overlay);
-  const face = document.createElement("div");
-  face.className = "jumpscare-face";
-  face.innerHTML = "👁👀";
-  overlay.appendChild(face);
-  document.body.classList.add("shake-hard");
-  audioManager.playScare();
-  const originalExposure = renderer.toneMappingExposure;
-  renderer.toneMappingExposure = 0.1;
-  setTimeout(() => {
-    renderer.toneMappingExposure = originalExposure;
-    overlay.remove();
-    document.body.classList.remove("shake-hard");
-  }, 400);
-  gameState.jumpscareTimer = 20 + Math.random() * 20;
 }
 
 window.triggerKeyFlash = triggerKeyFlash;
@@ -193,8 +170,8 @@ function refreshUi() {
 }
 
 function describeObjective() {
-  if (gameState.win) return "Du bist entkommen!";
-  if (gameState.objective === "escape") return "Zum Ausgang rennen";
+  if (gameState.win) return "Geschafft!";
+  if (gameState.objective === "escape") return "Zur magischen Tuere!";
   const total = level.keys ? level.keys.length : 2;
   const collected = gameState.keysCollected ? gameState.keysCollected.length : 0;
   return "Schluessel finden (" + collected + "/" + total + ")";
@@ -203,8 +180,8 @@ function describeObjective() {
 function describeStatus() {
   const total = level.keys ? level.keys.length : 2;
   const collected = gameState.keysCollected ? gameState.keysCollected.length : 0;
-  const keyStatus = collected >= total ? "Alle Schluessel" : collected + "/" + total + " Schluessel";
-  const exitStatus = level.exitDoor?.userData?.isOpen ? "Ausgang offen" : level.exitDoor?.userData?.locked ? "Ausgang zu" : "Ausgang entriegelt";
+  const keyStatus = collected >= total ? "Alle Schluessel!" : collected + "/" + total + " Schluessel";
+  const exitStatus = level.exitDoor?.userData?.isOpen ? "Tuere offen!" : level.exitDoor?.userData?.locked ? "Tuere zu" : "Tuere auf";
   return gameState.message + " | " + keyStatus + " | " + exitStatus;
 }
 
@@ -252,12 +229,6 @@ function stepSimulation(deltaSeconds) {
     flashlight.intensity = flashlightFlickerTimer < 0.15
       ? flashlightBaseIntensity * (0.3 + Math.random() * 0.4)
       : flashlightBaseIntensity + Math.sin(simulationTime * 3) * 0.5;
-
-    // Jumpscare timer
-    gameState.jumpscareTimer -= deltaSeconds;
-    if (gameState.jumpscareTimer <= 0 && !gameState.win) {
-      triggerJumpscare();
-    }
   }
 
   level.update(deltaSeconds, simulationTime);
