@@ -188,7 +188,6 @@ function describeStatus() {
 }
 
 refreshUi();
-}
 
 function renderFrame() {
   postFX.render(1/60);
