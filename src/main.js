@@ -187,6 +187,30 @@ function describeStatus() {
   return gameState.message + " | " + keyStatus + " | " + exitStatus;
 }
 
+function updateCompass() {
+  let targetX, targetZ, label;
+  if (gameState.win) { window._compassAngle = 0; window._compassLabel = "✓"; return; }
+  if (level.keys && !gameState.hasKey) {
+    const next = level.keys.find(k => !k.userData.collected);
+    if (next) {
+      targetX = next.position.x; targetZ = next.position.z;
+      label = next.userData.name + " (" + Math.round(Math.sqrt((targetX-camera.position.x)**2 + (targetZ-camera.position.z)**2)) + "m)";
+    }
+  }
+  if (gameState.hasKey && level.exitDoor) {
+    targetX = level.exitDoor.position.x; targetZ = level.exitDoor.position.z;
+    label = "Ausgang (" + Math.round(Math.sqrt((targetX-camera.position.x)**2 + (targetZ-camera.position.z)**2)) + "m)";
+  }
+  if (targetX != null) {
+    const dx = targetX - camera.position.x, dz = targetZ - camera.position.z;
+    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+    forward.y = 0; forward.normalize();
+    const toTarget = new THREE.Vector3(dx, 0, dz).normalize();
+    window._compassAngle = Math.atan2(forward.x * toTarget.z - forward.z * toTarget.x, forward.x * toTarget.x + forward.z * toTarget.z);
+    window._compassLabel = label;
+  }
+}
+
 refreshUi();
 
 function renderFrame() {
