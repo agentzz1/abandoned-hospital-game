@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Abandoned Hospital</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --bg: #050608; --text: #edf0f5; --muted: #8b95a5;
+        --accent: #8bd3ff; --accent-2: #d7a2ff; --accent-green: #7aea9d;
+        --border: rgba(255,255,255,0.08); --shadow: 0 24px 60px rgba(0,0,0,0.45);
+        --glow-blue: 0 0 20px rgba(139,211,255,0.3); --glow-green: 0 0 20px rgba(122,234,157,0.3);
+      }
+      html, body { width:100%; height:100%; margin:0; overflow:hidden; background:var(--bg); color:var(--text); font-family:"Inter",sans-serif; -webkit-font-smoothing:antialiased; }
+      body { position:relative; cursor:default; }
+      canvas { display:block; }
+
+      50%{box-shadow:inset 0 0 180px rgba(0,0,0,0.75)} }
+      25%{transform:translate(-2px,1px)} 50%{transform:translate(1px,-1px)} 75%{transform:translate(-1px,-2px)} 100%{transform:translate(2px,0)} }
+      #ui { z-index:3; }
+
+      /* HUD */
+      #hud { position:absolute; top:20px; left:20px; display:grid; gap:10px; width:min(360px,calc(100vw - 40px)); }
+      .hud-card { padding:14px 16px; border:1px solid var(--border); border-radius:16px; background:linear-gradient(135deg,rgba(15,18,24,0.85),rgba(8,10,14,0.75)); box-shadow:var(--shadow); backdrop-filter:blur(12px); }
+      .hud-label { display:flex; align-items:center; gap:6px; margin-bottom:6px; font-size:11px; font-weight:600; letter-spacing:0.18em; text-transform:uppercase; color:var(--accent); }
+      .hud-value { display:block; font-size:16px; font-weight:500; line-height:1.4; color:var(--text); }
+      .hud-value.status { font-size:13px; color:var(--muted); }
+
+      /* Key indicator */
+      #key-indicator { position:absolute; top:20px; right:20px; display:flex; gap:12px; }
+      .key-slot { width:44px; height:44px; border:2px solid rgba(255,255,255,0.12); border-radius:12px; background:rgba(10,12,16,0.7); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; transition:all 0.4s; opacity:0.4; }
+      .key-slot.collected { border-color:var(--accent-green); background:rgba(122,234,157,0.1); opacity:1; box-shadow:var(--glow-green); }
+      .key-icon { font-size:20px; }
+
+      /* Timer */
+      #timer { position:absolute; top:74px; right:20px; padding:8px 14px; border:1px solid var(--border); border-radius:10px; background:rgba(10,12,16,0.6); backdrop-filter:blur(8px); font-family:"JetBrains Mono",monospace; font-size:14px; color:var(--muted); }
+
+      /* Compass */
+      #compass { position:absolute; bottom:80px; left:50%; transform:translateX(-50%); width:60px; height:60px; pointer-events:none; }
+      #compass-arrow { width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:32px; color:var(--accent); text-shadow:0 0 10px rgba(139,211,255,0.5); transition:transform 0.3s; }
+      #compass-label { position:absolute; bottom:-18px; left:50%; transform:translateX(-50%); font-size:10px; color:var(--muted); white-space:nowrap; letter-spacing:0.1em; text-transform:uppercase; }
+
+      /* Crosshair */
+      #crosshair { position:absolute; top:50%; left:50%; width:20px; height:20px; margin-left:-10px; margin-top:-10px; pointer-events:none; display:none; }
+      #crosshair::before, #crosshair::after { content:''; position:absolute; background:var(--accent); border-radius:1px; box-shadow:var(--glow-blue); }
+      #crosshair::before { top:50%; left:0; right:0; height:1px; margin-top:-0.5px; }
+      #crosshair::after { left:50%; top:0; bottom:0; width:1px; margin-left:-0.5px; }
+
+      /* Interaction prompt */
+      #interaction-prompt { position:absolute; left:50%; bottom:16%; transform:translateX(-50%); padding:12px 20px; border:1px solid rgba(139,211,255,0.2); border-radius:14px; background:rgba(2,3,5,0.75); color:var(--text); font-size:14px; font-weight:500; text-align:center; backdrop-filter:blur(10px); box-shadow:var(--shadow),var(--glow-blue); display:none; white-space:nowrap; }
+
+      /* Intro overlay (brief instructions) */
+      #intro-overlay { position:absolute; inset:0; display:none; align-items:center; justify-content:center; pointer-events:none; z-index:50; }
+      #intro-card { padding:32px 48px; border:1px solid rgba(139,211,255,0.15); border-radius:24px; background:rgba(5,8,12,0.92); backdrop-filter:blur(16px); text-align:center; max-width:500px; }
+      #intro-card h2 { margin:0 0 12px; font-size:24px; color:var(--accent); }
+      #intro-card p { margin:0; color:var(--muted); font-size:14px; line-height:1.7; }
+      #intro-card .keys { margin-top:16px; display:flex; gap:16px; justify-content:center; }
+      #intro-card .key-hint { padding:8px 16px; border:1px solid rgba(255,255,255,0.1); border-radius:10px; background:rgba(255,255,255,0.03); font-size:13px; }
+      #intro-card .key-hint strong { color:var(--accent); }
+
+      /* Note overlay */
+      #note-overlay { position:absolute; inset:0; display:none; align-items:center; justify-content:center; pointer-events:auto; background:rgba(0,0,0,0.8); backdrop-filter:blur(4px); }
+      #note-card { width:min(640px,calc(100vw - 40px)); padding:28px; border:1px solid rgba(255,255,255,0.08); border-radius:24px; background:linear-gradient(180deg,rgba(247,244,232,0.97),rgba(229,224,208,0.95)); color:#1a1a18; box-shadow:var(--shadow); }
+      #note-text { white-space:pre-wrap; font-family:"JetBrains Mono",monospace; font-size:15px; line-height:1.6; min-height:180px; color:#2a2a25; }
+      .action-row { display:flex; gap:10px; margin-top:24px; }
+      button { appearance:none; border:0; border-radius:12px; padding:12px 20px; font:inherit; font-weight:600; font-size:14px; cursor:pointer; transition:transform 0.15s; }
+      button:hover { transform:translateY(-2px); }
+      #close-note { background:linear-gradient(135deg,#2a2520,#1a1815); color:#e8e4d8; box-shadow:0 8px 20px rgba(0,0,0,0.25); }
+
+      /* Win overlay */
+      #win-overlay { position:absolute; inset:0; display:none; align-items:center; justify-content:center; pointer-events:auto; background:radial-gradient(ellipse at center,rgba(5,20,15,0.85),rgba(0,0,0,0.9)); }
+      #win-card { width:min(500px,calc(100vw - 40px)); padding:32px; border:1px solid rgba(122,234,157,0.15); border-radius:28px; background:linear-gradient(180deg,rgba(12,22,18,0.96),rgba(6,10,8,0.98)); box-shadow:var(--shadow),0 0 40px rgba(122,234,157,0.1); }
+      #win-card .eyebrow { margin:0 0 10px; font-size:11px; font-weight:600; letter-spacing:0.28em; text-transform:uppercase; color:var(--accent-green); }
+      #win-card .modal-title { margin:0 0 14px; font-size:clamp(26px,4.5vw,48px); font-weight:700; line-height:1.05; background:linear-gradient(135deg,#f2fbff,var(--accent-green)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+      #win-message { margin:0; color:var(--muted); font-size:15px; line-height:1.6; }
+      #win-stats { margin:16px 0 0; padding:16px; border:1px solid rgba(122,234,157,0.1); border-radius:14px; background:rgba(0,0,0,0.2); }
+      .stat-row { display:flex; justify-content:space-between; padding:6px 0; font-size:14px; border-bottom:1px solid rgba(255,255,255,0.05); }
+      .stat-row:last-child { border-bottom:none; }
+      .stat-label { color:var(--muted); }
+      .stat-value { color:var(--accent-green); font-weight:600; font-family:"JetBrains Mono",monospace; }
+      #restart-button { background:linear-gradient(135deg,#1a3a2a,#0d1f18); color:var(--accent-green); box-shadow:0 10px 24px rgba(0,0,0,0.25); }
+
+      /* Notification */
+      #notification { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); padding:16px 24px; border:1px solid rgba(139,211,255,0.3); border-radius:16px; background:rgba(5,15,25,0.85); color:var(--accent); font-size:16px; font-weight:600; text-align:center; backdrop-filter:blur(10px); box-shadow:var(--shadow),var(--glow-blue); display:none; z-index:20; }
+
+      /* Screen shake */
+      .shake { animation:screenShake 0.3s ease; }
+      @keyframes screenShake { 0%,100%{transform:translate(0,0)} 10%{transform:translate(-3px,-2px)} 20%{transform:translate(3px,1px)} 30%{transform:translate(-2px,3px)} 40%{transform:translate(2px,-1px)} 50%{transform:translate(-1px,2px)} }
+      .shake-hard { animation:screenShakeHard 0.4s ease; }
+      @keyframes screenShakeHard { 0%,100%{transform:translate(0,0)} 10%{transform:translate(-8px,-6px)} 20%{transform:translate(8px,4px)} 30%{transform:translate(-6px,8px)} 40%{transform:translate(6px,-4px)} 50%{transform:translate(-4px,6px)} 60%{transform:translate(4px,-8px)} 70%{transform:translate(-8px,4px)} }
+
+      /* Key flash */
+      .key-flash { position:absolute; inset:0; background:radial-gradient(circle at center,rgba(122,234,157,0.15),transparent 70%); pointer-events:none; z-index:5; animation:flashFade 0.6s ease forwards; }
+      @keyframes flashFade { from{opacity:1} to{opacity:0} }
+
+      /* Jumpscare */
+      .jumpscare-overlay { position:absolute; inset:0; z-index:100; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.9); animation:jumpscareFlash 0.4s ease; pointer-events:none; }
+      @keyframes jumpscareFlash { 0%{opacity:1} 50%{opacity:1} 100%{opacity:0} }
+      .jumpscare-face { font-size:120px; animation:jumpscareFace 0.4s ease; filter:brightness(2) contrast(1.5); }
+      @keyframes jumpscareFace { 0%{transform:scale(0.3); opacity:0} 30%{transform:scale(1.5); opacity:1} 100%{transform:scale(2); opacity:0} }
+
+      @media (max-width:720px) {
+        #hud { width:calc(100vw - 24px); left:12px; top:12px; }
+        #key-indicator { top:12px; right:12px; }
+        #timer { top:64px; right:12px; }
+        #note-card, #win-card, #intro-card { width:calc(100vw - 24px); padding:24px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="ui">
+      <div id="hud">
+        <div class="hud-card">
+          <span class="hud-label">Aufgabe</span>
+          <span class="hud-value" id="objective-text">Schluessel finden</span>
+        </div>
+        <div class="hud-card">
+          <span class="hud-label">Status</span>
+          <span class="hud-value status" id="status-text">Erkunde das Krankenhaus.</span>
+        </div>
+      </div>
+
+      <div id="key-indicator">
+        <div class="key-slot" id="key-slot-1"><span class="key-icon">🔑</span></div>
+        <div class="key-slot" id="key-slot-2"><span class="key-icon">🔑</span></div>
+      </div>
+
+      <div id="timer">00:00</div>
+
+      <div id="compass">
+        <div id="compass-arrow">➤</div>
+        <div id="compass-label">Ziel</div>
+      </div>
+
+      <div id="crosshair"></div>
+      <div id="interaction-prompt">E - Interagieren</div>
+      <div id="notification"></div>
+
+      <!-- Brief intro overlay -->
+      <div id="intro-overlay">
+        <div id="intro-card">
+          <h2>Abandoned Hospital</h2>
+          <p>Finde 2 Schluessel. Oeffne den Ausgang. Entkomme.</p>
+          <div class="keys">
+            <div class="key-hint"><strong>WASD</strong> bewegen</div>
+            <div class="key-hint"><strong>Maus</strong> schauen</div>
+            <div class="key-hint"><strong>E</strong> interagieren</div>
+            <div class="key-hint"><strong>M</strong> Sound aus</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Note overlay -->
+      <div id="note-overlay">
+        <div id="note-card">
+          <div id="note-text"></div>
+          <div class="action-row">
+            <button id="close-note" type="button">Schliessen</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Win overlay -->
+      <div id="win-overlay">
+        <div id="win-card">
+          <p class="eyebrow">Flucht gelungen</p>
+          <h2 class="modal-title">Du bist entkommen!</h2>
+          <p id="win-message">Das Krankenhaus liegt hinter dir.</p>
+          <div id="win-stats">
+            <div class="stat-row"><span class="stat-label">Zeit</span><span class="stat-value" id="stat-time">--:--</span></div>
+            <div class="stat-row"><span class="stat-label">Notizen gelesen</span><span class="stat-value" id="stat-notes">0</span></div>
+            <div class="stat-row"><span class="stat-label">Schluessel</span><span class="stat-value" id="stat-keys">2/2</span></div>
+          </div>
+          <div class="action-row">
+            <button id="restart-button" type="button">Nochmal spielen (R)</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+    <script>
+      setInterval(() => {
+        const t = document.getElementById('timer');
+        if (t && window._gameElapsed != null) {
+          const m = Math.floor(window._gameElapsed / 60).toString().padStart(2,'0');
+          const s = Math.floor(window._gameElapsed % 60).toString().padStart(2,'0');
+          t.textContent = `${m}:${s}`;
+        }
+      }, 500);
+
+      setInterval(() => {
+        if (window._keysCollected) {
+          window._keysCollected.forEach((c, i) => {
+            const slot = document.getElementById(`key-slot-${i+1}`);
+            if (slot) slot.classList.toggle('collected', c);
+          });
+        }
+      }, 300);
+
+      setInterval(() => {
+        const a = document.getElementById('compass-arrow');
+        const l = document.getElementById('compass-label');
+        if (a && window._compassAngle != null) {
+          a.style.transform = `rotate(${window._compassAngle}rad)`;
+          l.textContent = window._compassLabel || 'Ziel';
+        }
+      }, 200);
+
+      setInterval(() => {
+        const c = document.getElementById('crosshair');
+        if (c) c.style.display = window._gameMode === 'playing' ? 'block' : 'none';
+      }, 200);
+    </script>
+  </body>
+</html>
