@@ -78,7 +78,6 @@ let simulationTime = 0;
 
 // Auto-start
 setTimeout(() => {
-  player.lock();
   audioManager.init();
   uiSet(ui.instructions, 'style.display', 'none');
   uiSet(ui.crosshair, 'style.display', 'block');
@@ -96,30 +95,8 @@ if (introOverlay) {
 
 window.addEventListener("resize", onWindowResize, false);
 document.addEventListener("keydown", onGlobalKeyDown, true);
-ui.closeNote.addEventListener("click", () => interaction.closeNote());
-ui.restartButton.addEventListener("click", restartGame);
-
-document.addEventListener("pointerlockchange", () => {
-  const locked = document.pointerLockElement === document.body;
-  if (locked) {
-    uiSet(ui.instructions, 'style.display', 'none');
-    uiSet(ui.crosshair, 'style.display', 'block');
-  } else {
-    if (gameState.mode === "note" || gameState.mode === "won") {
-      uiSet(ui.crosshair, 'style.display', 'none');
-      return;
-    }
-    if (gameState.mode === "playing") {
-      gameState.mode = "paused";
-    }
-    setTimeout(() => {
-      if (gameState.mode === "paused") {
-        gameState.mode = "playing";
-        player.lock();
-      }
-    }, 50);
-  }
-});
+ui.closeNote?.addEventListener("click", () => interaction.closeNote());
+ui.restartButton?.addEventListener("click", restartGame);
 
 refreshUi();
 requestAnimationFrame(frame);
