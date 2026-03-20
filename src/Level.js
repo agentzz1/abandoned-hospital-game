@@ -130,19 +130,19 @@ export class Level {
     // Warm sunlight from windows
     const sunLight = new THREE.DirectionalLight(0xffddaa, 1.5);
     sunLight.position.set(-5, 8, 12);
-    moonLight.castShadow = true;
-    moonLight.shadow.mapSize.width = 2048;
-    moonLight.shadow.mapSize.height = 2048;
-    moonLight.shadow.camera.near = 0.5;
-    moonLight.shadow.camera.far = 30;
-    moonLight.shadow.camera.left = -15;
-    moonLight.shadow.camera.right = 15;
-    moonLight.shadow.camera.top = 15;
-    moonLight.shadow.camera.bottom = -15;
-    moonLight.shadow.bias = -0.0005;
-    moonLight.shadow.normalBias = 0.02;
-    this.scene.add(moonLight);
-    this.moonLight = moonLight;
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 2048;
+    sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.camera.near = 0.5;
+    sunLight.shadow.camera.far = 30;
+    sunLight.shadow.camera.left = -15;
+    sunLight.shadow.camera.right = 15;
+    sunLight.shadow.camera.top = 15;
+    sunLight.shadow.camera.bottom = -15;
+    sunLight.shadow.bias = -0.0005;
+    sunLight.shadow.normalBias = 0.02;
+    this.scene.add(sunLight);
+    this.sunLight = sunLight;
 
     // Interior point lights - warm and colorful
     this._light(0, 2.7, 0, 0xffeecc, 5.0, 20, 0, true);
