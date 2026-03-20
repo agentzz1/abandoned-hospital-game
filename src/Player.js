@@ -50,11 +50,13 @@ export class Player {
         case "KeyD": this.moveRight = true; break;
         case "ArrowLeft":
           this._yaw += this._lookStep;
+          this._clampYaw();
           this.camera.quaternion.setFromEuler(new THREE.Euler(this._pitch, this._yaw, 0, 'YXZ'));
           event.preventDefault();
           break;
         case "ArrowRight":
           this._yaw -= this._lookStep;
+          this._clampYaw();
           this.camera.quaternion.setFromEuler(new THREE.Euler(this._pitch, this._yaw, 0, 'YXZ'));
           event.preventDefault();
           break;
@@ -94,6 +96,12 @@ export class Player {
 
     document.addEventListener("keydown", onKeyDown);
     document.addEventListener("keyup", onKeyUp);
+  }
+
+  _clampYaw() {
+    // Keep yaw in [-PI, PI] to prevent flip
+    while (this._yaw > Math.PI) this._yaw -= Math.PI * 2;
+    while (this._yaw < -Math.PI) this._yaw += Math.PI * 2;
   }
 
   update(delta) {

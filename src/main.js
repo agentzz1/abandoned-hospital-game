@@ -321,6 +321,7 @@ window.sim = {
     const dz = z - camera.position.z;
     player._yaw = Math.atan2(dx, -dz);
     player._pitch = 0;
+    player._clampYaw();
     camera.quaternion.setFromEuler(new THREE.Euler(0, player._yaw, 0, 'YXZ'));
     renderFrame();
   },
