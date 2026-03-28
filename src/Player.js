@@ -9,286 +9,188 @@ export class Player {
     this.ui = ui;
     this.gameState = gameState;
 
-    // Movement
-    this.moveSpeed = 5.0;
-    this.sprintMultiplier = 1.6;
-    this.isCrouched = false;
+    this.speed = 5;
+    this.sensitivity = 0.002;
+    this.locked = false;
 
-    // Input
+    // WASD state - must be direct properties for sim.move compatibility
     this.moveForward = false;
     this.moveBackward = false;
     this.moveLeft = false;
     this.moveRight = false;
     this.isSprinting = false;
+    this.isCrouched = false;
 
-    // Look - just yaw and pitch as plain numbers
-    this.yaw = 0;   // radians, 0 = forward (-Z), positive = right
-    this.pitch = 0; // radians, positive = up
-    this.sensitivity = 0.002;
-    this.pointerLocked = false;
+    this.yaw = 0;
+    this.pitch = 0;
 
-    // Velocity for smooth movement
-    this.velX = 0;
-    this.velZ = 0;
+    this._footstepTimer = 0;
+    this._bobTimer = 0;
 
-    // Animation
-    this.footstepTimer = 0;
-    this.headBobTimer = 0;
-    this.breathTimer = 0;
-    this.footstepShake = 0;
-    this._baseY = 1.6;
-    this._baseRoll = 0;
-    this._headBobX = 0;
-
-    // Init
     this.camera.position.set(0, 1.6, 0);
-    this._applyRotation();
+    this._setCamRot();
 
-    this._setupKeyboard();
-    this._setupMouse();
+    this._bindKeys();
+    this._bindMouse();
   }
 
   get isLockedOrDragging() {
-    return this.pointerLocked || this.moveForward || this.moveBackward || this.moveLeft || this.moveRight;
+    return this.locked || this.moveForward || this.moveBackward || this.moveLeft || this.moveRight;
   }
 
-  // Expose euler for compatibility with sim.look/lookAt
-  // Returns a proxy that maps x->pitch, y->yaw
   get euler() {
     const self = this;
     return {
       get x() { return self.pitch; },
-      set x(v) { self.pitch = v; self._applyRotation(); },
+      set x(v) { self.pitch = v; self._setCamRot(); },
       get y() { return self.yaw; },
-      set y(v) { self.yaw = v; self._applyRotation(); },
+      set y(v) { self.yaw = v; self._setCamRot(); },
       z: 0
     };
   }
 
-  _applyRotation() {
+  get velocity() {
+    return { x: 0, z: 0, set() {} };
+  }
+
+  _setCamRot() {
     this.camera.quaternion.setFromEuler(new THREE.Euler(this.pitch, this.yaw, 0, 'YXZ'));
   }
 
-  // ─── KEYBOARD ───────────────────────────────────────────────
-  _setupKeyboard() {
-    document.addEventListener('keydown', (e) => {
-      if (e.repeat) return;
-      switch (e.code) {
-        case 'KeyW': this.moveForward = true; break;
-        case 'KeyA': this.moveLeft = true; break;
-        case 'KeyS': this.moveBackward = true; break;
-        case 'KeyD': this.moveRight = true; break;
-        case 'ShiftLeft': case 'ShiftRight': this.isSprinting = true; break;
-        case 'ControlLeft': case 'KeyC':
-          this.isCrouched = true;
-          this._baseY = 1.0;
-          break;
-      }
+  _bindKeys() {
+    const map = {
+      'KeyW': 'moveForward', 'KeyS': 'moveBackward',
+      'KeyA': 'moveLeft', 'KeyD': 'moveRight',
+      'ShiftLeft': 'isSprinting', 'ShiftRight': 'isSprinting',
+      'ControlLeft': 'isCrouched', 'KeyC': 'isCrouched'
+    };
+    document.addEventListener('keydown', e => {
+      if (map[e.code]) this[map[e.code]] = true;
     });
-
-    document.addEventListener('keyup', (e) => {
-      switch (e.code) {
-        case 'KeyW': this.moveForward = false; break;
-        case 'KeyA': this.moveLeft = false; break;
-        case 'KeyS': this.moveBackward = false; break;
-        case 'KeyD': this.moveRight = false; break;
-        case 'ShiftLeft': case 'ShiftRight': this.isSprinting = false; break;
-        case 'ControlLeft': case 'KeyC':
-          this.isCrouched = false;
-          this._baseY = 1.6;
-          break;
-      }
+    document.addEventListener('keyup', e => {
+      if (map[e.code]) this[map[e.code]] = false;
     });
   }
 
-  // ─── MOUSE ──────────────────────────────────────────────────
-  _setupMouse() {
+  _bindMouse() {
     const canvas = document.querySelector('canvas');
     const hint = document.getElementById('click-to-play');
 
-    const tryLock = () => {
-      if (!this.pointerLocked) {
-        (canvas || document.body).requestPointerLock();
-      }
+    const lock = () => {
+      if (!this.locked) (canvas || document.body).requestPointerLock();
     };
-
-    canvas?.addEventListener('click', tryLock);
-    document.addEventListener('click', (e) => {
+    canvas?.addEventListener('click', lock);
+    document.addEventListener('click', e => {
       if (e.target.closest('#note-overlay, #win-overlay, #intro-overlay, button')) return;
-      tryLock();
+      lock();
     });
 
     document.addEventListener('pointerlockchange', () => {
-      this.pointerLocked = document.pointerLockElement === (canvas || document.body);
-      if (hint) hint.style.display = this.pointerLocked ? 'none' : 'block';
+      this.locked = document.pointerLockElement === (canvas || document.body);
+      if (hint) hint.style.display = this.locked ? 'none' : 'block';
     });
 
-    document.addEventListener('mousemove', (e) => {
-      if (!this.pointerLocked) return;
-
-      this.yaw -= (e.movementX || 0) * this.sensitivity;
-      this.pitch -= (e.movementY || 0) * this.sensitivity;
+    document.addEventListener('mousemove', e => {
+      if (!this.locked) return;
+      this.yaw -= e.movementX * this.sensitivity;
+      this.pitch -= e.movementY * this.sensitivity;
       this.pitch = Math.max(-1.5, Math.min(1.5, this.pitch));
-
-      this._applyRotation();
-    });
-
-    document.addEventListener('keydown', (e) => {
-      if (e.code === 'Escape' && this.pointerLocked) {
-        document.exitPointerLock();
-      }
+      this._setCamRot();
     });
   }
 
-  // ─── COLLISION ──────────────────────────────────────────────
-  _resolveCollision(prevX, prevZ) {
+  update(dt) {
+    const sin = Math.sin(this.yaw);
+    const cos = Math.cos(this.yaw);
+
+    // forward direction at yaw=0 is -Z
+    const fwdX = sin;
+    const fwdZ = -cos;
+
+    // right direction at yaw=0 is +X
+    const rightX = cos;
+    const rightZ = sin;
+
+    let spd = this.speed;
+    if (this.isSprinting) spd *= 1.6;
+    if (this.isCrouched) spd *= 0.5;
+
+    let mx = 0, mz = 0;
+
+    if (this.moveForward)  { mx += fwdX;    mz += fwdZ; }
+    if (this.moveBackward) { mx -= fwdX;    mz -= fwdZ; }
+    if (this.moveRight)    { mx += rightX;  mz += rightZ; }
+    if (this.moveLeft)     { mx -= rightX;  mz -= rightZ; }
+
+    const len = Math.sqrt(mx * mx + mz * mz);
+    if (len > 0.001) {
+      mx = (mx / len) * spd * dt;
+      mz = (mz / len) * spd * dt;
+    }
+
+    const oldX = this.camera.position.x;
+    const oldZ = this.camera.position.z;
+
+    this.camera.position.x += mx;
+    this.camera.position.z += mz;
+
+    // collision
     const px = this.camera.position.x;
     const pz = this.camera.position.z;
     const pad = 0.35;
+    let hit = false;
 
     for (let i = 0; i < this.walls.length; i++) {
-      const wall = this.walls[i];
-      if (wall.userData?.blocksMovement === false) continue;
-
-      const dx = px - wall.position.x;
-      const dz = pz - wall.position.z;
-      if (dx * dx + dz * dz > 100) continue;
-
-      if (!wall.geometry.boundingBox) wall.geometry.computeBoundingBox();
-      const bb = wall.geometry.boundingBox;
+      const w = this.walls[i];
+      if (w.userData?.blocksMovement === false) continue;
+      const ddx = px - w.position.x;
+      const ddz = pz - w.position.z;
+      if (ddx * ddx + ddz * ddz > 100) continue;
+      if (!w.geometry.boundingBox) w.geometry.computeBoundingBox();
+      const bb = w.geometry.boundingBox;
       const hw = (bb.max.x - bb.min.x) * 0.5;
-      const hd = (bb.max.z - bb.max.z) * 0.5;
-
-      if (px + pad > wall.position.x - hw && px - pad < wall.position.x + hw &&
-          pz + pad > wall.position.z - hd && pz - pad < wall.position.z + hd) {
-        this.camera.position.x = prevX;
-        this.camera.position.z = prevZ;
-        return true;
+      const hd = (bb.max.z - bb.min.z) * 0.5;
+      if (px + pad > w.position.x - hw && px - pad < w.position.x + hw &&
+          pz + pad > w.position.z - hd && pz - pad < w.position.z + hd) {
+        hit = true;
+        break;
       }
     }
-    return false;
-  }
-
-  // ─── UPDATE ─────────────────────────────────────────────────
-  update(delta) {
-    const speedMul = (this.isSprinting ? this.sprintMultiplier : 1.0) * (this.isCrouched ? 0.5 : 1.0);
-    const speed = this.moveSpeed * speedMul;
-    const moving = this.moveForward || this.moveBackward || this.moveLeft || this.moveRight;
-
-    // ── Calculate direction vectors from YAW ONLY (no quaternion) ──
-    const sinY = Math.sin(this.yaw);
-    const cosY = Math.cos(this.yaw);
-
-    // Forward: when yaw=0, forward = (0, 0, -1). When yaw=PI/2, forward = (1, 0, 0)
-    const fwdX = sinY;
-    const fwdZ = -cosY;
-
-    // Right: when yaw=0, right = (1, 0, 0). When yaw=PI/2, right = (0, 0, 1)
-    const rgtX = cosY;
-    const rgtZ = sinY;
-
-    // ── Get input ──
-    const inputFwd = (this.moveForward ? 1 : 0) - (this.moveBackward ? 1 : 0);
-    const inputRgt = (this.moveRight ? 1 : 0) - (this.moveLeft ? 1 : 0);
-
-    // ── Target velocity ──
-    let targetVelX = 0;
-    let targetVelZ = 0;
-
-    if (inputFwd !== 0) {
-      targetVelX += fwdX * inputFwd * speed;
-      targetVelZ += fwdZ * inputFwd * speed;
-    }
-    if (inputRgt !== 0) {
-      targetVelX += rgtX * inputRgt * speed;
-      targetVelZ += rgtZ * inputRgt * speed;
+    if (hit) {
+      this.camera.position.x = oldX;
+      this.camera.position.z = oldZ;
     }
 
-    // Smooth velocity
-    const lerpFactor = moving ? 12.0 : 10.0;
-    this.velX += (targetVelX - this.velX) * lerpFactor * delta;
-    this.velZ += (targetVelZ - this.velZ) * lerpFactor * delta;
-
-    // ── Apply movement ──
-    const prevX = this.camera.position.x;
-    const prevZ = this.camera.position.z;
-
-    this.camera.position.x += this.velX * delta;
-    this.camera.position.z += this.velZ * delta;
-
-    // ── Head bob & animation ──
+    // head bob
+    const moving = len > 0.001;
     if (moving) {
-      this.footstepTimer += delta;
-      this.headBobTimer += delta * (this.isSprinting ? 14 : 9);
-
-      const stepInterval = this.isSprinting ? 0.30 : 0.50;
-      if (this.footstepTimer > stepInterval) {
-        this.audioManager.playFootstep(this.isSprinting);
-        this.footstepShake = 1.0;
-        this.footstepTimer = 0;
+      this._bobTimer += dt * 9;
+      this.camera.position.y = 1.6 + Math.abs(Math.sin(this._bobTimer)) * 0.035;
+      this._footstepTimer += dt;
+      if (this._footstepTimer > 0.5) {
+        this.audioManager?.playFootstep(false);
+        this._footstepTimer = 0;
       }
-
-      const bobX = Math.sin(this.headBobTimer) * (this.isSprinting ? 0.025 : 0.015);
-      const bobY = Math.abs(Math.sin(this.headBobTimer * 2)) * (this.isSprinting ? 0.06 : 0.035);
-
-      this.footstepShake *= Math.pow(0.01, delta);
-      const shakeX = (Math.random() - 0.5) * this.footstepShake * 0.008;
-      const shakeY = (Math.random() - 0.5) * this.footstepShake * 0.005;
-
-      const targetRoll = inputRgt * 0.015 * (this.isSprinting ? 1.3 : 1.0);
-      this._baseRoll += (targetRoll - this._baseRoll) * 5 * delta;
-
-      this.camera.position.y = this._baseY + bobY + shakeY;
-      this._headBobX = bobX + shakeX;
     } else {
-      this.footstepTimer = 0;
-      this.footstepShake = 0;
-
-      this.breathTimer += delta * 1.2;
-      const breathY = Math.sin(this.breathTimer) * 0.008;
-
-      this.camera.position.y += (this._baseY + breathY - this.camera.position.y) * 8 * delta;
-      this._headBobX += (0 - this._headBobX) * 8 * delta;
-      this._baseRoll += (0 - this._baseRoll) * 8 * delta;
+      this._footstepTimer = 0;
+      this.camera.position.y += (1.6 - this.camera.position.y) * 5 * dt;
     }
 
-    // ── Collision ──
-    if (this._resolveCollision(prevX, prevZ)) {
-      this.velX *= 0.3;
-      this.velZ *= 0.3;
-    }
-
-    // ── Head bob offset on local X ──
-    this.camera.position.x += rgtX * this._headBobX;
-    this.camera.position.z += rgtZ * this._headBobX;
-
-    // ── Final rotation: yaw + pitch, then roll ──
-    this._applyRotation();
-    if (Math.abs(this._baseRoll) > 0.0001) {
-      const rollQ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), this._baseRoll);
-      this.camera.quaternion.multiply(rollQ);
-    }
+    this._setCamRot();
   }
 
   reset() {
-    this.velX = 0;
-    this.velZ = 0;
-    this.footstepTimer = 0;
-    this.headBobTimer = 0;
-    this.breathTimer = 0;
-    this.footstepShake = 0;
-    this._baseRoll = 0;
-    this._headBobX = 0;
-    this.isCrouched = false;
-    this.isSprinting = false;
     this.moveForward = false;
     this.moveBackward = false;
     this.moveLeft = false;
     this.moveRight = false;
-    this._baseY = 1.6;
+    this.isSprinting = false;
+    this.isCrouched = false;
     this.yaw = 0;
     this.pitch = 0;
+    this._bobTimer = 0;
+    this._footstepTimer = 0;
     this.camera.position.set(0, 1.6, 0);
-    this._applyRotation();
+    this._setCamRot();
   }
 }
