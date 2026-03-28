@@ -53,14 +53,16 @@ export class Player {
   }
 
   // Expose euler for compatibility with sim.look/lookAt
+  // Returns a proxy that maps x->pitch, y->yaw
   get euler() {
-    return { x: this.pitch, y: this.yaw, z: 0 };
-  }
-
-  set euler(val) {
-    this.pitch = val.x;
-    this.yaw = val.y;
-    this._applyRotation();
+    const self = this;
+    return {
+      get x() { return self.pitch; },
+      set x(v) { self.pitch = v; self._applyRotation(); },
+      get y() { return self.yaw; },
+      set y(v) { self.yaw = v; self._applyRotation(); },
+      z: 0
+    };
   }
 
   _applyRotation() {
