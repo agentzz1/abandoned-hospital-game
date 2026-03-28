@@ -295,8 +295,8 @@ window.sim = {
       const dist = Math.sqrt(dx * dx + dz * dz);
       if (dist < 1.5) break;
       // Set yaw to face target
-      player._yaw = Math.atan2(dx, -dz);
-      camera.quaternion.setFromEuler(new THREE.Euler(player._pitch, player._yaw, 0, 'YXZ'));
+      player.euler.y = Math.atan2(dx, -dz);
+      camera.quaternion.setFromEuler(player.euler);
       player.moveForward = true;
       stepSimulation(0.016);
     }
@@ -306,10 +306,10 @@ window.sim = {
 
   // Look by rotating camera directly
   look(yawRad, pitchRad) {
-    player._yaw += yawRad;
-    player._pitch += pitchRad;
-    player._pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, player._pitch));
-    camera.quaternion.setFromEuler(new THREE.Euler(player._pitch, player._yaw, 0, 'YXZ'));
+    player.euler.y += yawRad;
+    player.euler.x += pitchRad;
+    player.euler.x = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, player.euler.x));
+    camera.quaternion.setFromEuler(player.euler);
     renderFrame();
   },
 
@@ -317,10 +317,9 @@ window.sim = {
   lookAt(x, z) {
     const dx = x - camera.position.x;
     const dz = z - camera.position.z;
-    player._yaw = Math.atan2(dx, -dz);
-    player._pitch = 0;
-    player._clampYaw();
-    camera.quaternion.setFromEuler(new THREE.Euler(0, player._yaw, 0, 'YXZ'));
+    player.euler.y = Math.atan2(dx, -dz);
+    player.euler.x = 0;
+    camera.quaternion.setFromEuler(player.euler);
     renderFrame();
   },
 
@@ -383,7 +382,7 @@ window.render_game_to_text = () => {
     exitUnlocked: gameState.exitUnlocked, exitOpen: gameState.exitOpen, win: gameState.win,
     elapsed: gameState.elapsed, notesRead: gameState.notesRead,
     jumpscareCount: gameState.jumpscareCount,
-    player: { x: r(camera.position.x), y: r(camera.position.y), z: r(camera.position.z), yaw: r(player._yaw), pitch: r(player._pitch) },
+    player: { x: r(camera.position.x), y: r(camera.position.y), z: r(camera.position.z), yaw: r(player.euler.y), pitch: r(player.euler.x) },
     keys: level.keys ? level.keys.map(k => ({ id: k.userData.id, name: k.userData.name, collected: k.userData.collected, x: r(k.position.x), z: r(k.position.z) })) : [],
     exitDoor: level.exitDoor ? { locked: !!level.exitDoor.userData.locked, open: !!level.exitDoor.userData.isOpen } : null,
     prompt: ui.prompt?.style?.display || 'none',
