@@ -117,10 +117,10 @@ export class Player {
 
     let mx = 0, mz = 0;
 
-    if (this.moveForward)  { mx += fwdX;    mz += fwdZ; }
-    if (this.moveBackward) { mx -= fwdX;    mz -= fwdZ; }
-    if (this.moveRight)    { mx += rightX;  mz += rightZ; }
-    if (this.moveLeft)     { mx -= rightX;  mz -= rightZ; }
+    if (this.moveForward)  { mx -= fwdX;    mz -= fwdZ; }
+    if (this.moveBackward) { mx += fwdX;    mz += fwdZ; }
+    if (this.moveRight)    { mx -= rightX;  mz -= rightZ; }
+    if (this.moveLeft)     { mx += rightX;  mz += rightZ; }
 
     const len = Math.sqrt(mx * mx + mz * mz);
     if (len > 0.001) {
