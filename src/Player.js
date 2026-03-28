@@ -4,7 +4,7 @@ export class Player {
   constructor(camera, domElement, scene, walls, audioManager, ui, gameState) {
     this.camera = camera;
     this.domElement = domElement;
-    this.walls = walls;
+    this.walls = walls || [];
     this.audioManager = audioManager;
     this.ui = ui;
     this.gameState = gameState;
@@ -13,7 +13,6 @@ export class Player {
     this.sensitivity = 0.002;
     this.locked = false;
 
-    // WASD state - must be direct properties for sim.move compatibility
     this.moveForward = false;
     this.moveBackward = false;
     this.moveLeft = false;
@@ -32,6 +31,27 @@ export class Player {
 
     this._bindKeys();
     this._bindMouse();
+
+    // Pre-compute wall AABBs
+    this._wallBoxes = [];
+    this._buildWallBoxes();
+  }
+
+  _buildWallBoxes() {
+    this._wallBoxes = [];
+    for (const w of this.walls) {
+      if (w.userData?.blocksMovement === false) continue;
+      if (!w.geometry) continue;
+      if (!w.geometry.boundingBox) w.geometry.computeBoundingBox();
+      const bb = w.geometry.boundingBox;
+      if (!bb) continue;
+      this._wallBoxes.push({
+        minX: w.position.x + bb.min.x,
+        maxX: w.position.x + bb.max.x,
+        minZ: w.position.z + bb.min.z,
+        maxZ: w.position.z + bb.max.z,
+      });
+    }
   }
 
   get isLockedOrDragging() {
@@ -64,32 +84,23 @@ export class Player {
       'ShiftLeft': 'isSprinting', 'ShiftRight': 'isSprinting',
       'ControlLeft': 'isCrouched', 'KeyC': 'isCrouched'
     };
-    document.addEventListener('keydown', e => {
-      if (map[e.code]) this[map[e.code]] = true;
-    });
-    document.addEventListener('keyup', e => {
-      if (map[e.code]) this[map[e.code]] = false;
-    });
+    document.addEventListener('keydown', e => { if (map[e.code]) this[map[e.code]] = true; });
+    document.addEventListener('keyup', e => { if (map[e.code]) this[map[e.code]] = false; });
   }
 
   _bindMouse() {
     const canvas = document.querySelector('canvas');
     const hint = document.getElementById('click-to-play');
-
-    const lock = () => {
-      if (!this.locked) (canvas || document.body).requestPointerLock();
-    };
+    const lock = () => { if (!this.locked) (canvas || document.body).requestPointerLock(); };
     canvas?.addEventListener('click', lock);
     document.addEventListener('click', e => {
       if (e.target.closest('#note-overlay, #win-overlay, #intro-overlay, button')) return;
       lock();
     });
-
     document.addEventListener('pointerlockchange', () => {
       this.locked = document.pointerLockElement === (canvas || document.body);
       if (hint) hint.style.display = this.locked ? 'none' : 'block';
     });
-
     document.addEventListener('mousemove', e => {
       if (!this.locked) return;
       this.yaw -= e.movementX * this.sensitivity;
@@ -99,28 +110,34 @@ export class Player {
     });
   }
 
+  _collides(px, pz) {
+    const r = 0.3;
+    for (let i = 0; i < this._wallBoxes.length; i++) {
+      const b = this._wallBoxes[i];
+      if (px + r > b.minX && px - r < b.maxX &&
+          pz + r > b.minZ && pz - r < b.maxZ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   update(dt) {
     const sin = Math.sin(this.yaw);
     const cos = Math.cos(this.yaw);
 
-    // Rotation matrix around Y:
-    // forward (0,0,-1) rotated -> (-sin, 0, -cos)
-    // right   (1,0,0)  rotated -> (cos, 0, -sin)
-    const fwdX = -sin;
-    const fwdZ = -cos;
-    const rightX = cos;
-    const rightZ = -sin;
+    const fwdX = -sin, fwdZ = -cos;
+    const rightX = cos, rightZ = -sin;
 
     let spd = this.speed;
     if (this.isSprinting) spd *= 1.6;
     if (this.isCrouched) spd *= 0.5;
 
     let mx = 0, mz = 0;
-
-    if (this.moveForward)  { mx += fwdX;    mz += fwdZ; }
-    if (this.moveBackward) { mx -= fwdX;    mz -= fwdZ; }
-    if (this.moveRight)    { mx += rightX;  mz += rightZ; }
-    if (this.moveLeft)     { mx -= rightX;  mz -= rightZ; }
+    if (this.moveForward)  { mx += fwdX;   mz += fwdZ; }
+    if (this.moveBackward) { mx -= fwdX;   mz -= fwdZ; }
+    if (this.moveRight)    { mx += rightX; mz += rightZ; }
+    if (this.moveLeft)     { mx -= rightX; mz -= rightZ; }
 
     const len = Math.sqrt(mx * mx + mz * mz);
     if (len > 0.001) {
@@ -128,40 +145,26 @@ export class Player {
       mz = (mz / len) * spd * dt;
     }
 
-    const oldX = this.camera.position.x;
-    const oldZ = this.camera.position.z;
+    // Try X and Z separately for wall sliding
+    const curX = this.camera.position.x;
+    const curZ = this.camera.position.z;
 
-    this.camera.position.x += mx;
-    this.camera.position.z += mz;
-
-    // collision
-    const px = this.camera.position.x;
-    const pz = this.camera.position.z;
-    const pad = 0.35;
-    let hit = false;
-
-    for (let i = 0; i < this.walls.length; i++) {
-      const w = this.walls[i];
-      if (w.userData?.blocksMovement === false) continue;
-      const ddx = px - w.position.x;
-      const ddz = pz - w.position.z;
-      if (ddx * ddx + ddz * ddz > 100) continue;
-      if (!w.geometry.boundingBox) w.geometry.computeBoundingBox();
-      const bb = w.geometry.boundingBox;
-      const hw = (bb.max.x - bb.min.x) * 0.5;
-      const hd = (bb.max.z - bb.min.z) * 0.5;
-      if (px + pad > w.position.x - hw && px - pad < w.position.x + hw &&
-          pz + pad > w.position.z - hd && pz - pad < w.position.z + hd) {
-        hit = true;
-        break;
-      }
+    // Try full movement
+    if (!this._collides(curX + mx, curZ + mz)) {
+      this.camera.position.x = curX + mx;
+      this.camera.position.z = curZ + mz;
     }
-    if (hit) {
-      this.camera.position.x = oldX;
-      this.camera.position.z = oldZ;
+    // Try X only
+    else if (!this._collides(curX + mx, curZ)) {
+      this.camera.position.x = curX + mx;
     }
+    // Try Z only
+    else if (!this._collides(curX, curZ + mz)) {
+      this.camera.position.z = curZ + mz;
+    }
+    // else blocked completely
 
-    // head bob
+    // Head bob
     const moving = len > 0.001;
     if (moving) {
       this._bobTimer += dt * 9;
