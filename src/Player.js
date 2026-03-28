@@ -43,29 +43,51 @@ export class Player {
   }
 
   _setupMouseLook() {
-    // Click to lock mouse for mouselook
-    this.domElement.addEventListener('click', () => {
-      if (!this._isLocked) {
-        this.domElement.requestPointerLock?.();
+    const canvas = document.querySelector('canvas');
+    const lockTarget = canvas || this.domElement;
+
+    // Click canvas to lock mouse
+    lockTarget.addEventListener('click', () => {
+      if (!this._isLocked && document.pointerLockElement !== lockTarget) {
+        lockTarget.requestPointerLock?.();
       }
     });
 
+    // Also allow any click on body when not locked
+    document.addEventListener('click', () => {
+      if (!this._isLocked && document.pointerLockElement !== lockTarget) {
+        lockTarget.requestPointerLock?.();
+      }
+    });
+
+    const clickToPlay = document.getElementById('click-to-play');
+
     document.addEventListener('pointerlockchange', () => {
-      this._isLocked = document.pointerLockElement === this.domElement;
-      if (this._isLocked) {
-        this.domElement.style.cursor = 'none';
-      } else {
-        this.domElement.style.cursor = '';
+      this._isLocked = document.pointerLockElement === lockTarget;
+      if (clickToPlay) {
+        clickToPlay.style.display = this._isLocked ? 'none' : 'block';
       }
     });
 
     document.addEventListener('mousemove', (e) => {
       if (!this._isLocked) return;
-      this._yaw -= e.movementX * this._sensitivity;
-      this._pitch -= e.movementY * this._sensitivity;
+      if (document.pointerLockElement !== lockTarget) return;
+
+      const dx = e.movementX || 0;
+      const dy = e.movementY || 0;
+
+      this._yaw -= dx * this._sensitivity;
+      this._pitch -= dy * this._sensitivity;
       this._pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, this._pitch));
       this._clampYaw();
       this.camera.quaternion.setFromEuler(new THREE.Euler(this._pitch, this._yaw, 0, 'YXZ'));
+    });
+
+    // ESC to release pointer lock
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Escape' && this._isLocked) {
+        document.exitPointerLock?.();
+      }
     });
   }
 
