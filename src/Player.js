@@ -103,13 +103,13 @@ export class Player {
     const sin = Math.sin(this.yaw);
     const cos = Math.cos(this.yaw);
 
-    // forward direction at yaw=0 is -Z
-    const fwdX = sin;
+    // Rotation matrix around Y:
+    // forward (0,0,-1) rotated -> (-sin, 0, -cos)
+    // right   (1,0,0)  rotated -> (cos, 0, -sin)
+    const fwdX = -sin;
     const fwdZ = -cos;
-
-    // right direction at yaw=0 is +X
     const rightX = cos;
-    const rightZ = sin;
+    const rightZ = -sin;
 
     let spd = this.speed;
     if (this.isSprinting) spd *= 1.6;
@@ -117,10 +117,10 @@ export class Player {
 
     let mx = 0, mz = 0;
 
-    if (this.moveForward)  { mx -= fwdX;    mz -= fwdZ; }
-    if (this.moveBackward) { mx += fwdX;    mz += fwdZ; }
-    if (this.moveRight)    { mx -= rightX;  mz -= rightZ; }
-    if (this.moveLeft)     { mx += rightX;  mz += rightZ; }
+    if (this.moveForward)  { mx += fwdX;    mz += fwdZ; }
+    if (this.moveBackward) { mx -= fwdX;    mz -= fwdZ; }
+    if (this.moveRight)    { mx += rightX;  mz += rightZ; }
+    if (this.moveLeft)     { mx -= rightX;  mz -= rightZ; }
 
     const len = Math.sqrt(mx * mx + mz * mz);
     if (len > 0.001) {
