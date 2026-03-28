@@ -27,8 +27,11 @@ export class Player {
 
     this._yaw = 0;
     this._pitch = 0;
+    this._sensitivity = 0.002;
+    this._isLocked = false;
 
     this._setupInput();
+    this._setupMouseLook();
     this.camera.position.set(0, 1.6, 0);
     this._baseY = 1.6;
     this._baseRoll = 0;
@@ -36,7 +39,34 @@ export class Player {
   }
 
   get isLockedOrDragging() {
-    return this.moveForward || this.moveBackward || this.moveLeft || this.moveRight;
+    return this._isLocked || this.moveForward || this.moveBackward || this.moveLeft || this.moveRight;
+  }
+
+  _setupMouseLook() {
+    // Click to lock mouse for mouselook
+    this.domElement.addEventListener('click', () => {
+      if (!this._isLocked) {
+        this.domElement.requestPointerLock?.();
+      }
+    });
+
+    document.addEventListener('pointerlockchange', () => {
+      this._isLocked = document.pointerLockElement === this.domElement;
+      if (this._isLocked) {
+        this.domElement.style.cursor = 'none';
+      } else {
+        this.domElement.style.cursor = '';
+      }
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!this._isLocked) return;
+      this._yaw -= e.movementX * this._sensitivity;
+      this._pitch -= e.movementY * this._sensitivity;
+      this._pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, this._pitch));
+      this._clampYaw();
+      this.camera.quaternion.setFromEuler(new THREE.Euler(this._pitch, this._yaw, 0, 'YXZ'));
+    });
   }
 
   _setupInput() {
@@ -48,6 +78,7 @@ export class Player {
         case "KeyA": this.moveLeft = true; break;
         case "KeyS": this.moveBackward = true; break;
         case "KeyD": this.moveRight = true; break;
+        // Arrow keys for looking (works without mouse lock)
         case "ArrowLeft":
           this._yaw += this._lookStep;
           this._clampYaw();
@@ -99,17 +130,14 @@ export class Player {
   }
 
   _clampYaw() {
-    // Keep yaw in [-PI, PI] to prevent flip
     while (this._yaw > Math.PI) this._yaw -= Math.PI * 2;
     while (this._yaw < -Math.PI) this._yaw += Math.PI * 2;
   }
 
   update(delta) {
-    // Velocity damping
     this.velocity.x -= this.velocity.x * 10.0 * delta;
     this.velocity.z -= this.velocity.z * 10.0 * delta;
 
-    // Input direction
     this.direction.z = Number(this.moveForward) - Number(this.moveBackward);
     this.direction.x = Number(this.moveRight) - Number(this.moveLeft);
     this.direction.normalize();
@@ -140,32 +168,26 @@ export class Player {
         this.footstepTimer = 0;
       }
 
-      // Figure-8 head bob pattern
       const bobX = Math.sin(this.headBobTimer) * (this.isSprinting ? 0.025 : 0.015);
       const bobY = Math.abs(Math.sin(this.headBobTimer * 2)) * (this.isSprinting ? 0.06 : 0.035);
 
-      // Footstep impact vibration
       this.footstepShake *= Math.pow(0.01, delta);
       const shakeX = (Math.random() - 0.5) * this.footstepShake * 0.008;
       const shakeY = (Math.random() - 0.5) * this.footstepShake * 0.005;
 
-      // Camera tilt on strafe
       const targetRoll = this.direction.x * 0.015 * (this.isSprinting ? 1.3 : 1.0);
       this._baseRoll += (targetRoll - this._baseRoll) * 5 * delta;
 
       this.camera.position.y = this._baseY + bobY + shakeY;
       this._headBobX = bobX + shakeX;
       this.camera.rotation.z = this._baseRoll;
-
     } else {
       this.footstepTimer = 0;
       this.footstepShake = 0;
 
-      // Breathing animation when standing still
       this.breathTimer += delta * 1.2;
       const breathY = Math.sin(this.breathTimer) * 0.008;
 
-      // Smooth return to base position
       this.camera.position.y += (this._baseY + breathY - this.camera.position.y) * 8 * delta;
       this._headBobX += (0 - this._headBobX) * 8 * delta;
       this._baseRoll += (0 - this._baseRoll) * 8 * delta;
@@ -181,13 +203,12 @@ export class Player {
     this.camera.position.addScaledVector(right, -this.velocity.x * delta);
     this.camera.position.addScaledVector(forward, -this.velocity.z * delta);
 
-    // Apply head bob offset after movement (local X axis)
+    // Head bob offset
     const rightAxis = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion);
     this.camera.position.addScaledVector(rightAxis, this._headBobX);
 
     const collided = this._resolveCollision(prevPos);
     if (collided) {
-      // Slide along walls instead of full stop
       this.velocity.x *= 0.3;
       this.velocity.z *= 0.3;
     }
