@@ -119,11 +119,13 @@ function onGlobalKeyDown(event) {
     return;
   }
   if (event.code === "Escape") {
-    if (ui.noteOverlay.style.display === "flex") { event.preventDefault(); event.stopImmediatePropagation(); interaction.closeNote(); return; }
+    if (gameState.mode === "note") { event.preventDefault(); event.stopImmediatePropagation(); interaction.closeNote(); return; }
     if (document.fullscreenElement) { event.preventDefault(); document.exitFullscreen().catch(() => {}); return; }
   }
-  if ((event.code === "KeyE" || event.code === "Enter" || event.code === "Space") && gameState.mode === "playing") {
-    event.preventDefault(); interaction.interact(); return;
+  if (event.code === "KeyE" || event.code === "Enter" || event.code === "Space") {
+    // While a note is open the same key closes it again.
+    if (gameState.mode === "note") { event.preventDefault(); interaction.closeNote(); return; }
+    if (gameState.mode === "playing") { event.preventDefault(); interaction.interact(); return; }
   }
   if (event.code === "KeyR" && gameState.win) { event.preventDefault(); restartGame(); }
 }
@@ -162,12 +164,16 @@ window.triggerKeyFlash = triggerKeyFlash;
 window.showNotification = showNotification;
 
 function refreshUi() {
-  ui.objectiveText.textContent = describeObjective();
-  ui.statusText.textContent = describeStatus();
-  ui.winMessage.textContent = gameState.message;
+  uiSet(ui.objectiveText, 'textContent', describeObjective());
+  uiSet(ui.statusText, 'textContent', describeStatus());
+  uiSet(ui.winMessage, 'textContent', gameState.message);
   window._gameElapsed = gameState.elapsed;
   window._gameMode = gameState.mode;
   window._keysCollected = level.keys ? level.keys.map(k => k.userData.collected) : [];
+  const statKeys = document.getElementById("stat-keys");
+  if (statKeys && level.keys) {
+    statKeys.textContent = level.keys.filter(k => k.userData.collected).length + "/" + level.keys.length;
+  }
   updateCompass();
 }
 
@@ -211,8 +217,6 @@ function updateCompass() {
   }
 }
 
-refreshUi();
-
 function stepSimulation(deltaSeconds) {
   simulationTime += deltaSeconds;
   gameState.elapsed += deltaSeconds;
@@ -233,15 +237,17 @@ function stepSimulation(deltaSeconds) {
   refreshUi();
 }
 
-function renderFrame() {
-  postFX.render(1/60);
+function renderFrame(deltaSeconds = 1 / 60) {
+  postFX.render(deltaSeconds);
 }
 
 function frame(now) {
-  const deltaSeconds = Math.min(0.05, (now - lastFrameTime) / 1000);
+  // The first rAF timestamp can predate module init (texture generation takes a
+  // while), which used to feed a large negative delta into the whole simulation.
+  const deltaSeconds = Math.max(0, Math.min(0.05, (now - lastFrameTime) / 1000));
   lastFrameTime = now;
   stepSimulation(deltaSeconds);
-  renderFrame();
+  renderFrame(deltaSeconds);
   requestAnimationFrame(frame);
 }
 
@@ -293,10 +299,9 @@ window.sim = {
       const dx = x - camera.position.x;
       const dz = z - camera.position.z;
       const dist = Math.sqrt(dx * dx + dz * dz);
-      if (dist < 1.5) break;
+      if (dist < 0.6) break;
       // Set yaw to face target
-      player.euler.y = Math.atan2(dx, -dz);
-      camera.quaternion.setFromEuler(player.euler);
+      player.euler.y = Math.atan2(-dx, -dz);
       player.moveForward = true;
       stepSimulation(0.016);
     }
@@ -308,8 +313,7 @@ window.sim = {
   look(yawRad, pitchRad) {
     player.euler.y += yawRad;
     player.euler.x += pitchRad;
-    player.euler.x = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, player.euler.x));
-    camera.quaternion.setFromEuler(player.euler);
+    player.euler.x = Math.max(-1.5, Math.min(1.5, player.euler.x));
     renderFrame();
   },
 
@@ -317,9 +321,8 @@ window.sim = {
   lookAt(x, z) {
     const dx = x - camera.position.x;
     const dz = z - camera.position.z;
-    player.euler.y = Math.atan2(dx, -dz);
+    player.euler.y = Math.atan2(-dx, -dz);
     player.euler.x = 0;
-    camera.quaternion.setFromEuler(player.euler);
     renderFrame();
   },
 
@@ -373,6 +376,8 @@ window.sim = {
     return results;
   }
 };
+
+window.game = { scene, camera, renderer, player, level, interaction, gameState, audioManager };
 
 window.render_game_to_text = () => {
   const r = v => Math.round(v * 1000) / 1000;

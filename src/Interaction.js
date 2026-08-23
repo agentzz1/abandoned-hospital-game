@@ -1,5 +1,10 @@
 import * as THREE from 'three';
 
+// How close the player has to get before a key is picked up automatically.
+const PICKUP_RADIUS = 1.8;
+
+const _tmpDir = new THREE.Vector3();
+
 export class Interaction {
   constructor(camera, scene, player, audioManager, level, gameState, ui, refreshUi) {
     this.camera = camera;
@@ -11,6 +16,7 @@ export class Interaction {
     this.ui = ui;
     this.refreshUi = refreshUi;
     this.raycaster = new THREE.Raycaster();
+    this._losRay = new THREE.Raycaster();
     this.center = new THREE.Vector2(0, 0);
     this.currentInteractable = null;
     this.interactables = [];
@@ -63,22 +69,38 @@ export class Interaction {
       if (this.ui.prompt) this.ui.prompt.style.display = 'none';
     }
 
-    // Auto-collect nearby keys
+    // Auto-collect keys the player walks into (arm's length, not through walls)
     if (this.level.keys) {
       const px = this.camera.position.x;
       const py = this.camera.position.y;
       const pz = this.camera.position.z;
       for (const key of this.level.keys) {
-        if (!key.userData.collected) {
-          const dx = px - key.position.x;
-          const dy = py - key.position.y;
-          const dz = pz - key.position.z;
-          if (dx * dx + dy * dy + dz * dz <= 64) { // 8.0 units radius
-            this._collectKey(key.userData.id);
-          }
-        }
+        if (key.userData.collected) continue;
+        const dx = px - key.position.x;
+        const dy = py - key.position.y;
+        const dz = pz - key.position.z;
+        if (dx * dx + dy * dy + dz * dz > PICKUP_RADIUS * PICKUP_RADIUS) continue;
+        if (!this._hasLineOfSight(key)) continue;
+        this._collectKey(key.userData.id);
       }
     }
+  }
+
+  // True when no wall sits between the camera and the target object.
+  _hasLineOfSight(target) {
+    const from = this.camera.position;
+    const to = target.position;
+    const dir = _tmpDir.subVectors(to, from);
+    const dist = dir.length();
+    if (dist < 0.001) return true;
+    dir.divideScalar(dist);
+    this._losRay.set(from, dir);
+    this._losRay.far = dist;
+    const blockers = this.level.walls
+      ? this.level.walls.filter(w => w.userData?.blocksMovement !== false && w !== target)
+      : [];
+    const hits = this._losRay.intersectObjects(blockers, true);
+    return hits.length === 0;
   }
 
   interact() {
@@ -108,6 +130,7 @@ export class Interaction {
       }
 
       if (!data.isOpen && this.level.openExitDoor()) {
+        this.player?.refreshColliders?.();
         this.audioManager.playVictory();
         this.gameState.exitOpen = true;
         this.gameState.message = 'Der Ausgang ist offen. Du entkommst!';
@@ -131,7 +154,16 @@ export class Interaction {
     if (this.ui.prompt) this.ui.prompt.style.display = 'none';
     if (this.ui.instructions) this.ui.instructions.style.display = 'none';
     if (this.ui.crosshair) this.ui.crosshair.style.display = 'none';
+    this._releaseMouse();
     this.refreshUi();
+  }
+
+  // Overlays have buttons, so the mouse cursor has to come back.
+  _releaseMouse() {
+    this.player?.clearInput?.();
+    if (typeof document !== 'undefined' && document.pointerLockElement) {
+      document.exitPointerLock();
+    }
   }
 
   closeNote() {
@@ -148,6 +180,8 @@ export class Interaction {
     if (this.ui.winOverlay) this.ui.winOverlay.style.display = 'flex';
     if (this.ui.instructions) this.ui.instructions.style.display = 'none';
     if (this.ui.crosshair) this.ui.crosshair.style.display = 'none';
+    if (this.ui.prompt) this.ui.prompt.style.display = 'none';
+    this._releaseMouse();
 
     // Update win stats
     const elapsed = this.gameState.elapsed || 0;
@@ -208,8 +242,9 @@ export class Interaction {
       data.prompt = 'Tuer oeffnen';
     }
 
+    this.player?.refreshColliders?.();
     this.audioManager.playDoorCreek();
-    this.ui.prompt.textContent = `E - ${data.prompt}`;
+    if (this.ui.prompt) this.ui.prompt.textContent = `E - ${data.prompt}`;
     this.refreshUi();
   }
 

@@ -97,6 +97,34 @@ export class PostFX {
 
     this.dofEnabled = true;
     this.time = 0;
+
+    // Adaptive quality: the SSAO + bokeh passes are by far the most expensive
+    // ones. On slow machines they turn the game into a slideshow, so drop them
+    // automatically when the frame rate collapses.
+    this.adaptiveQuality = true;
+    this.highQuality = true;
+    this._frameSamples = 0;
+    this._frameTimeSum = 0;
+  }
+
+  setHighQuality(on) {
+    if (this.highQuality === on) return;
+    this.highQuality = on;
+    this.ssaoPass.enabled = on;
+    this.bokehPass.enabled = on;
+    this.bloomPass.strength = on ? 0.5 : 0.35;
+  }
+
+  _adapt(delta) {
+    if (!this.adaptiveQuality || delta <= 0) return;
+    this._frameTimeSum += delta;
+    this._frameSamples++;
+    if (this._frameSamples < 45) return;
+    const avg = this._frameTimeSum / this._frameSamples;
+    this._frameSamples = 0;
+    this._frameTimeSum = 0;
+    if (this.highQuality && avg > 1 / 30) this.setHighQuality(false);
+    else if (!this.highQuality && avg < 1 / 55) this.setHighQuality(true);
   }
 
   setSize(width, height) {
@@ -110,13 +138,14 @@ export class PostFX {
     this.filmPass.uniforms["time"].value = this.time;
 
     // Subtle DOF breathing
-    if (this.bokehPass && this.dofEnabled) {
+    if (this.bokehPass && this.dofEnabled && this.bokehPass.enabled) {
       this.bokehPass.uniforms["focus"].value = 6.0 + Math.sin(this.time * 0.2) * 1.5;
     }
 
     // Subtle chromatic aberration pulse
     this.chromaticPass.uniforms["amount"].value = 0.002 + Math.sin(this.time * 0.5) * 0.001;
 
+    this._adapt(delta);
     this.composer.render();
   }
 }

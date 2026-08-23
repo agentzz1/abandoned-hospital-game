@@ -52,11 +52,15 @@ export class Level {
 
     // ========== CORRIDOR WALLS ==========
 
-    // Western corridor wall (z=5 to z=12)
-    this._w(wall, 0.3, H, 7, -3, H/2, 8.5);
+    // Western corridor wall (z=5 to z=12) with doorway into the file room (z=8.0 to z=9.4)
+    this._w(wall, 0.3, H, 3.0, -3, H/2, 6.5);
+    this._w(wall, 0.3, H, 2.6, -3, H/2, 10.7);
+    this._doorFrame(-3, 8.0, 9.4);
 
-    // Eastern corridor wall
-    this._w(wall, 0.3, H, 7, 3, H/2, 8.5);
+    // Eastern corridor wall with doorway into the OP room
+    this._w(wall, 0.3, H, 3.0, 3, H/2, 6.5);
+    this._w(wall, 0.3, H, 2.6, 3, H/2, 10.7);
+    this._doorFrame(3, 8.0, 9.4);
 
     // ========== ROOMS ==========
 
@@ -105,14 +109,14 @@ export class Level {
       new THREE.PlaneGeometry(0.25, 0.35),
       new THREE.MeshStandardMaterial({ color: 0xe8e4d5, roughness: 1, side: THREE.DoubleSide, emissive: 0x1a1510, emissiveIntensity: 0.1 })
     );
-    note.position.set(-2.85, 1.5, -3); note.rotation.y = Math.PI / 2; note.receiveShadow = true;
+    note.position.set(0, 1.5, -6.83); note.rotation.y = 0; note.receiveShadow = true;
     note.userData = { type: "note", prompt: "Notiz lesen",
-      text: "Hinweis:\n\n2 Schluessel versteckt.\nBLAU = linker Raum oben\nORANGE = rechter Raum unten\n\nAusgang = Norden (Gang hoch)\n\nM = Sound aus"
+      text: "Hinweis:\n\n2 Schluessel versteckt.\nBLAU = linker Raum oben (Aktenraum)\nORANGE = rechter Raum unten (Lager)\n\nAusgang = Norden (Gang hoch)\n\nWASD laufen, Maus/Pfeiltasten schauen\nShift rennen, C ducken, E benutzen\nM = Sound aus"
     };
     this.scene.add(note);
 
     // Corridor props
-    this._b(wood, 1.5, 0.45, 0.5, 0, 0.225, -2, true);
+    this._b(wood, 1.5, 0.45, 0.5, -1.9, 0.225, -2, true);
     this._b(metal, 0.3, 0.7, 0.3, 2, 0.35, 3, true);
     for (let i = 0; i < 8; i++) {
       const p = this._b(paper, 0.15, 0.01, 0.2, (Math.random()-.5)*4, 0.01, -3+Math.random()*10, false);
@@ -164,6 +168,22 @@ export class Level {
 
     // Dust particles
     this._dust();
+  }
+
+  // Visual frame around a doorway in a wall running along Z at a given x
+  _doorFrame(x, z0, z1) {
+    const mat = new THREE.MeshStandardMaterial({ color: 0x3a3d42, roughness: 0.8, metalness: 0.1 });
+    const h = 2.2;
+    for (const z of [z0, z1]) {
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.36, h, 0.12), mat);
+      post.position.set(x, h / 2, z);
+      post.userData = { blocksMovement: false };
+      this.scene.add(post);
+    }
+    const lintel = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.14, z1 - z0 + 0.12), mat);
+    lintel.position.set(x, h, (z0 + z1) / 2);
+    lintel.userData = { blocksMovement: false };
+    this.scene.add(lintel);
   }
 
   _w(mat, w, h, d, x, y, z) {
