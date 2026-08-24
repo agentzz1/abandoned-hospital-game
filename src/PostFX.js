@@ -46,6 +46,7 @@ const ChromaticAberrationShader = {
 
 export class PostFX {
   constructor(renderer, scene, camera, width, height) {
+    this.renderer = renderer;
     this.composer = new EffectComposer(renderer);
     this.composer.setSize(width, height);
 
@@ -59,6 +60,12 @@ export class PostFX {
     this.ssaoPass.maxDistance = 0.3;
     this.ssaoPass.output = SSAOPass.OUTPUT.Default;
     this.composer.addPass(this.ssaoPass);
+    // addPass() calls setSize() with the full effective resolution, overwriting
+    // the half-res target above - force it back down right after.
+    {
+      const pr = renderer.getPixelRatio();
+      this.ssaoPass.setSize((width * pr) >> 1, (height * pr) >> 1);
+    }
 
     // Bloom - light glow
     this.bloomPass = new UnrealBloomPass(
@@ -129,7 +136,8 @@ export class PostFX {
 
   setSize(width, height) {
     this.composer.setSize(width, height);
-    this.ssaoPass.setSize(width >> 1, height >> 1);
+    const pr = this.renderer.getPixelRatio();
+    this.ssaoPass.setSize((width * pr) >> 1, (height * pr) >> 1);
     this.bloomPass.setSize(width, height);
   }
 

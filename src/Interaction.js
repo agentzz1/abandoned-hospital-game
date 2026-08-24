@@ -55,7 +55,10 @@ export class Interaction {
 
     let hovered = null;
     if (intersects.length > 0 && intersects[0].distance < 3.5) {
-      hovered = this._getInteractableRoot(intersects[0].object);
+      const candidate = this._getInteractableRoot(intersects[0].object);
+      if (candidate && this._hasLineOfSight(candidate)) {
+        hovered = candidate;
+      }
     }
 
     if (hovered) {
@@ -125,6 +128,16 @@ export class Interaction {
         this.gameState.message = collected < total
           ? `Noch ${total - collected} Schluessel fehlen.`
           : 'Der Ausgang ist verschlossen.';
+
+        this.audioManager.playLockedDoorRattle();
+        this.player?.shakeCamera?.(0.03, 0.18);
+        if (window.flashMissingKeySlots && this.level.keys) {
+          const missing = this.level.keys
+            .map((k, i) => (k.userData.collected ? -1 : i))
+            .filter(i => i !== -1);
+          window.flashMissingKeySlots(missing);
+        }
+
         this.refreshUi();
         return;
       }
@@ -191,6 +204,7 @@ export class Interaction {
     const statNotes = document.getElementById('stat-notes');
     if (statTime) statTime.textContent = `${mins}:${secs}`;
     if (statNotes) statNotes.textContent = this.gameState.notesRead || 0;
+    if (window.updateWinStats) window.updateWinStats();
 
     this.refreshUi();
   }
@@ -214,6 +228,7 @@ export class Interaction {
     const collected = this.gameState.keysCollected.length;
 
     if (collected >= total) {
+      this.audioManager.playAllKeysFound();
       this.gameState.hasKey = true;
       this.gameState.exitUnlocked = true;
       this.gameState.objective = 'escape';

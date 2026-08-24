@@ -36,6 +36,9 @@ export class Player {
 
     this._footstepTimer = 0;
     this._bobTimer = 0;
+    this._shakeTime = 0;
+    this._shakeDuration = 0;
+    this._shakeIntensity = 0;
 
     this.camera.position.set(0, 1.6, 0);
     this._setCamRot();
@@ -111,6 +114,14 @@ export class Player {
     return !this.gameState || this.gameState.mode === 'playing';
   }
 
+  // Brief decaying rotational jitter on top of normal look rotation, e.g.
+  // for a rejected interaction like rattling a locked door.
+  shakeCamera(intensity = 0.03, duration = 0.18) {
+    this._shakeIntensity = intensity;
+    this._shakeDuration = duration;
+    this._shakeTime = duration;
+  }
+
   clearInput() {
     this.moveForward = this.moveBackward = this.moveLeft = this.moveRight = false;
     this.lookLeft = this.lookRight = this.lookUp = this.lookDown = false;
@@ -145,7 +156,7 @@ export class Player {
     const lock = () => { if (!this.locked) (canvas || document.body).requestPointerLock(); };
     canvas?.addEventListener('click', lock);
     document.addEventListener('click', e => {
-      if (e.target.closest('#note-overlay, #win-overlay, #intro-overlay, button')) return;
+      if (e.target.closest('#note-overlay, #win-overlay, #pause-overlay, #settings-overlay, #intro-overlay, button')) return;
       lock();
     });
     document.addEventListener('pointerlockchange', () => {
@@ -154,8 +165,11 @@ export class Player {
     });
     document.addEventListener('mousemove', e => {
       if (!this.locked || !this._canControl()) return;
-      this.yaw -= e.movementX * this.sensitivity;
-      this.pitch -= e.movementY * this.sensitivity;
+      const settings = this.gameState.settings || {};
+      const sensMul = settings.mouseSensitivity ?? 1.0;
+      const invertY = settings.invertY ? -1 : 1;
+      this.yaw -= e.movementX * this.sensitivity * sensMul;
+      this.pitch -= e.movementY * this.sensitivity * sensMul * invertY;
       this.pitch = Math.max(-1.5, Math.min(1.5, this.pitch));
       this._setCamRot();
     });
@@ -185,10 +199,13 @@ export class Player {
     }
 
     // Arrow-key look (alternative to the mouse)
-    if (this.lookLeft)  this.yaw += this.lookSpeed * dt;
-    if (this.lookRight) this.yaw -= this.lookSpeed * dt;
-    if (this.lookUp)    this.pitch += this.lookSpeed * dt;
-    if (this.lookDown)  this.pitch -= this.lookSpeed * dt;
+    const settings = this.gameState.settings || {};
+    const lookSensMul = settings.mouseSensitivity ?? 1.0;
+    const lookInvertY = settings.invertY ? -1 : 1;
+    if (this.lookLeft)  this.yaw += this.lookSpeed * lookSensMul * dt;
+    if (this.lookRight) this.yaw -= this.lookSpeed * lookSensMul * dt;
+    if (this.lookUp)    this.pitch += this.lookSpeed * lookSensMul * lookInvertY * dt;
+    if (this.lookDown)  this.pitch -= this.lookSpeed * lookSensMul * lookInvertY * dt;
     this.pitch = Math.max(-1.5, Math.min(1.5, this.pitch));
 
     const sin = Math.sin(this.yaw);
@@ -249,6 +266,15 @@ export class Player {
     }
 
     this._setCamRot();
+
+    // Applied on top of the settled look rotation so it doesn't fight mouse/arrow input.
+    if (this._shakeTime > 0) {
+      this._shakeTime = Math.max(0, this._shakeTime - dt);
+      const t = this._shakeTime / this._shakeDuration;
+      const amt = this._shakeIntensity * t;
+      this.camera.rotateX((Math.random() - 0.5) * amt);
+      this.camera.rotateY((Math.random() - 0.5) * amt);
+    }
   }
 
   reset() {
@@ -257,6 +283,7 @@ export class Player {
     this.pitch = 0;
     this._bobTimer = 0;
     this._footstepTimer = 0;
+    this._shakeTime = 0;
     this.eyeHeight = this.standHeight;
     this.camera.position.set(0, this.standHeight, 0);
     this._setCamRot();

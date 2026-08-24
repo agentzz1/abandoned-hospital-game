@@ -20,7 +20,7 @@
 
       #ui { z-index:3; pointer-events:none; }
       #ui > * { pointer-events:none; }
-      #note-overlay, #win-overlay, #intro-overlay, button { pointer-events:auto; }
+      #note-overlay, #win-overlay, #pause-overlay, #settings-overlay, #intro-overlay, button { pointer-events:auto; }
 
       /* HUD */
       #hud { position:absolute; top:20px; left:20px; display:grid; gap:10px; width:min(360px,calc(100vw - 40px)); }
@@ -29,18 +29,35 @@
       .hud-value { display:block; font-size:16px; font-weight:500; line-height:1.4; color:var(--text); }
       .hud-value.status { font-size:13px; color:var(--muted); }
 
+      /* Objective key pips */
+      .objective-pips { display:flex; gap:8px; margin-bottom:8px; }
+      .obj-pip { width:13px; height:13px; border-radius:50%; border:2px solid rgba(255,255,255,0.22); background:rgba(255,255,255,0.04); transition:all 0.4s; }
+      .obj-pip.blue.collected { border-color:#44aaff; background:#44aaff; box-shadow:0 0 9px 2px rgba(68,170,255,0.65); }
+      .obj-pip.orange.collected { border-color:#ff8844; background:#ff8844; box-shadow:0 0 9px 2px rgba(255,136,68,0.65); }
+
       /* Key indicator */
       #key-indicator { position:absolute; top:20px; right:20px; display:flex; gap:12px; }
-      .key-slot { width:44px; height:44px; border:2px solid rgba(255,255,255,0.15); border-radius:12px; background:rgba(30,20,40,0.7); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; transition:all 0.4s; opacity:0.5; }
+      .key-slot { position:relative; width:44px; height:44px; border:2px solid rgba(255,255,255,0.15); border-radius:12px; background:rgba(30,20,40,0.7); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; transition:all 0.4s; opacity:0.5; }
       .key-slot.collected { border-color:var(--accent-green); background:rgba(102,238,136,0.15); opacity:1; box-shadow:var(--glow-green); transform:scale(1.1); }
+      .key-slot.locked-flash { animation:keySlotLockedFlash 0.4s ease; }
+      @keyframes keySlotLockedFlash {
+        0%, 100% { border-color:rgba(255,255,255,0.15); box-shadow:none; }
+        30% { border-color:#ff4444; background:rgba(255,68,68,0.35); box-shadow:0 0 12px 3px rgba(255,68,68,0.6); }
+        70% { border-color:#ff4444; background:rgba(255,68,68,0.2); box-shadow:0 0 10px 2px rgba(255,68,68,0.4); }
+      }
       .key-icon { font-size:20px; }
+      .key-glyph { position:absolute; bottom:-2px; right:-2px; min-width:15px; height:15px; padding:0 2px; border-radius:5px; background:rgba(10,8,14,0.9); border:1px solid rgba(255,255,255,0.4); font-size:9px; font-weight:700; line-height:15px; text-align:center; color:#fff; font-family:"JetBrains Mono",monospace; }
 
       /* Timer */
       #timer { position:absolute; top:74px; right:20px; padding:8px 14px; border:1px solid var(--border); border-radius:10px; background:rgba(10,12,16,0.6); backdrop-filter:blur(8px); font-family:"JetBrains Mono",monospace; font-size:14px; color:var(--muted); }
 
       /* Compass */
       #compass { position:absolute; bottom:80px; left:50%; transform:translateX(-50%); width:60px; height:60px; pointer-events:none; }
-      #compass-arrow { width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:32px; color:var(--accent); text-shadow:0 0 10px rgba(139,211,255,0.5); transition:transform 0.3s; }
+      #compass-arrow { width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:32px; color:var(--accent); text-shadow:0 0 10px rgba(139,211,255,0.5); transition:transform 0.3s, color 0.3s, text-shadow 0.3s; }
+      #compass-arrow.compass-note { color:#e8b84b; text-shadow:0 0 10px rgba(232,184,75,0.6); }
+      #compass-arrow.compass-blue { color:#44aaff; text-shadow:0 0 10px rgba(68,170,255,0.6); }
+      #compass-arrow.compass-orange { color:#ff8844; text-shadow:0 0 10px rgba(255,136,68,0.6); }
+      #compass-arrow.compass-exit { color:var(--accent-green); text-shadow:0 0 10px rgba(102,238,136,0.6); }
       #compass-label { position:absolute; bottom:-18px; left:50%; transform:translateX(-50%); font-size:10px; color:var(--muted); white-space:nowrap; letter-spacing:0.1em; text-transform:uppercase; }
 
       /* Crosshair */
@@ -70,17 +87,44 @@
       button:hover { transform:translateY(-2px); }
       #close-note { background:linear-gradient(135deg,#2a2520,#1a1815); color:#e8e4d8; box-shadow:0 8px 20px rgba(0,0,0,0.25); }
 
+      /* Pause overlay */
+      #pause-overlay { position:absolute; inset:0; display:none; align-items:center; justify-content:center; pointer-events:auto; background:rgba(0,0,0,0.8); backdrop-filter:blur(4px); }
+      #pause-card { width:min(440px,calc(100vw - 40px)); padding:28px; border:1px solid rgba(255,255,255,0.08); border-radius:24px; background:linear-gradient(180deg,rgba(15,18,24,0.97),rgba(8,10,14,0.98)); box-shadow:var(--shadow); }
+      #pause-card h2 { margin:0 0 16px; font-size:22px; color:var(--accent); }
+      #pause-controls { margin:0 0 20px; padding:14px 16px; border:1px solid var(--border); border-radius:14px; background:rgba(0,0,0,0.25); }
+      #pause-controls h3 { margin:0 0 10px; font-size:11px; font-weight:600; letter-spacing:0.18em; text-transform:uppercase; color:var(--muted); }
+      #pause-controls ul { margin:0; padding:0; list-style:none; display:grid; gap:8px; }
+      #pause-controls li { display:flex; justify-content:space-between; font-size:13px; color:var(--text); }
+      #pause-controls li strong { color:var(--accent); font-weight:600; }
+      #resume-button { background:linear-gradient(135deg,#1a3a2a,#0d1f18); color:var(--accent-green); box-shadow:0 10px 24px rgba(0,0,0,0.25); }
+      #pause-restart-button { background:linear-gradient(135deg,#2a2520,#1a1815); color:#e8e4d8; box-shadow:0 8px 20px rgba(0,0,0,0.25); }
+      #settings-button { background:linear-gradient(135deg,#1a2a3a,#0d1a24); color:var(--accent); box-shadow:0 8px 20px rgba(0,0,0,0.25); }
+
+      /* Settings overlay */
+      #settings-overlay { position:absolute; inset:0; display:none; align-items:center; justify-content:center; pointer-events:auto; background:rgba(0,0,0,0.8); backdrop-filter:blur(4px); }
+      #settings-card { width:min(440px,calc(100vw - 40px)); padding:28px; border:1px solid rgba(255,255,255,0.08); border-radius:24px; background:linear-gradient(180deg,rgba(15,18,24,0.97),rgba(8,10,14,0.98)); box-shadow:var(--shadow); }
+      #settings-card h2 { margin:0 0 16px; font-size:22px; color:var(--accent); }
+      #settings-controls { margin:0 0 20px; padding:14px 16px; border:1px solid var(--border); border-radius:14px; background:rgba(0,0,0,0.25); display:grid; gap:16px; }
+      .setting-row { display:grid; gap:8px; }
+      .setting-row label { font-size:13px; color:var(--text); }
+      .setting-row input[type="range"] { width:100%; accent-color:var(--accent); }
+      .setting-row-checkbox { display:flex; flex-direction:row; align-items:center; justify-content:space-between; gap:12px; }
+      .setting-row-checkbox input[type="checkbox"] { width:18px; height:18px; accent-color:var(--accent); }
+      #settings-back-button { background:linear-gradient(135deg,#1a3a2a,#0d1f18); color:var(--accent-green); box-shadow:0 10px 24px rgba(0,0,0,0.25); }
+
       /* Win overlay */
       #win-overlay { position:absolute; inset:0; display:none; align-items:center; justify-content:center; pointer-events:auto; background:radial-gradient(ellipse at center,rgba(40,20,60,0.85),rgba(0,0,0,0.9)); }
       #win-card { width:min(500px,calc(100vw - 40px)); padding:32px; border:1px solid rgba(102,238,136,0.25); border-radius:28px; background:linear-gradient(180deg,rgba(30,20,50,0.96),rgba(15,10,30,0.98)); box-shadow:var(--shadow),0 0 60px rgba(255,170,85,0.15); }
       #win-card .eyebrow { margin:0 0 10px; font-size:11px; font-weight:600; letter-spacing:0.28em; text-transform:uppercase; color:var(--accent); }
       #win-card .modal-title { margin:0 0 14px; font-size:clamp(26px,4.5vw,48px); font-weight:700; line-height:1.05; background:linear-gradient(135deg,#fff,var(--accent)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
       #win-message { margin:0; color:var(--muted); font-size:15px; line-height:1.6; }
-      #win-stats { margin:16px 0 0; padding:16px; border:1px solid rgba(122,234,157,0.1); border-radius:14px; background:rgba(0,0,0,0.2); }
+      #win-stats, #win-records { margin:16px 0 0; padding:16px; border:1px solid rgba(122,234,157,0.1); border-radius:14px; background:rgba(0,0,0,0.2); }
       .stat-row { display:flex; justify-content:space-between; padding:6px 0; font-size:14px; border-bottom:1px solid rgba(255,255,255,0.05); }
       .stat-row:last-child { border-bottom:none; }
       .stat-label { color:var(--muted); }
       .stat-value { color:var(--accent-green); font-weight:600; font-family:"JetBrains Mono",monospace; }
+      #records-eyebrow { margin:18px 0 0; }
+      #new-record-badge { display:none; margin-top:10px; padding:5px 12px; border-radius:999px; background:rgba(255,170,85,0.18); border:1px solid rgba(255,170,85,0.5); color:var(--accent); font-size:12px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; }
       #restart-button { background:linear-gradient(135deg,#1a3a2a,#0d1f18); color:var(--accent-green); box-shadow:0 10px 24px rgba(0,0,0,0.25); }
 
       /* Notification */
@@ -115,7 +159,11 @@
       <div id="hud">
         <div class="hud-card">
           <span class="hud-label">Aufgabe</span>
-          <span class="hud-value" id="objective-text">Schluessel finden</span>
+          <div class="objective-pips">
+            <span class="obj-pip blue" id="obj-pip-blue"></span>
+            <span class="obj-pip orange" id="obj-pip-orange"></span>
+          </div>
+          <span class="hud-value" id="objective-text">Finde die Schluessel</span>
         </div>
         <div class="hud-card">
           <span class="hud-label">Status</span>
@@ -124,8 +172,8 @@
       </div>
 
       <div id="key-indicator">
-        <div class="key-slot" id="key-slot-1"><span class="key-icon">🔑</span></div>
-        <div class="key-slot" id="key-slot-2"><span class="key-icon">🔑</span></div>
+        <div class="key-slot" id="key-slot-1"><span class="key-icon">🔑</span><span class="key-glyph">I</span></div>
+        <div class="key-slot" id="key-slot-2"><span class="key-icon">🔑</span><span class="key-glyph">II</span></div>
       </div>
 
       <div id="timer">00:00</div>
@@ -170,6 +218,53 @@
         </div>
       </div>
 
+      <!-- Pause overlay -->
+      <div id="pause-overlay">
+        <div id="pause-card">
+          <h2>Pausiert</h2>
+          <div id="pause-controls">
+            <h3>Steuerung</h3>
+            <ul>
+              <li><span>Bewegen</span><strong>WASD / Pfeiltasten</strong></li>
+              <li><span>Umsehen</span><strong>Maus</strong></li>
+              <li><span>Rennen</span><strong>Shift</strong></li>
+              <li><span>Ducken</span><strong>Strg / C</strong></li>
+              <li><span>Interagieren</span><strong>E</strong></li>
+              <li><span>Pause</span><strong>Esc</strong></li>
+            </ul>
+          </div>
+          <div class="action-row">
+            <button id="resume-button" type="button">Fortsetzen</button>
+            <button id="settings-button" type="button">Einstellungen</button>
+            <button id="pause-restart-button" type="button">Neu starten</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Settings overlay -->
+      <div id="settings-overlay">
+        <div id="settings-card">
+          <h2>Einstellungen</h2>
+          <div id="settings-controls">
+            <div class="setting-row">
+              <label for="volume-slider">Lautstaerke</label>
+              <input type="range" id="volume-slider" min="0" max="100" step="1">
+            </div>
+            <div class="setting-row">
+              <label for="sensitivity-slider">Mausempfindlichkeit</label>
+              <input type="range" id="sensitivity-slider" min="0.2" max="3.0" step="0.1">
+            </div>
+            <div class="setting-row setting-row-checkbox">
+              <label for="invert-y-checkbox">Invertierte Maussteuerung (Y-Achse)</label>
+              <input type="checkbox" id="invert-y-checkbox">
+            </div>
+          </div>
+          <div class="action-row">
+            <button id="settings-back-button" type="button">Zurueck</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Win overlay -->
       <div id="win-overlay">
         <div id="win-card">
@@ -181,6 +276,12 @@
             <div class="stat-row"><span class="stat-label">Notizen gelesen</span><span class="stat-value" id="stat-notes">0</span></div>
             <div class="stat-row"><span class="stat-label">Schluessel</span><span class="stat-value" id="stat-keys">2/2</span></div>
           </div>
+          <p class="eyebrow" id="records-eyebrow">Rekorde</p>
+          <div id="win-records">
+            <div class="stat-row"><span class="stat-label">Bestzeit</span><span class="stat-value" id="stat-best-time">noch kein Rekord</span></div>
+            <div class="stat-row"><span class="stat-label">Laeufe</span><span class="stat-value" id="stat-runs">0</span></div>
+          </div>
+          <span id="new-record-badge">Neuer Rekord!</span>
           <div class="action-row">
             <button id="restart-button" type="button">Nochmal spielen (R)</button>
           </div>
@@ -215,6 +316,8 @@
         if (a && window._compassAngle != null) {
           a.style.transform = `rotate(${window._compassAngle}rad)`;
           l.textContent = window._compassLabel || 'Ziel';
+          const phase = window._compassPhase;
+          ['compass-note', 'compass-blue', 'compass-orange', 'compass-exit'].forEach(c => a.classList.toggle(c, c === `compass-${phase}`));
         }
       }, 200);
 
