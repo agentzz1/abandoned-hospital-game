@@ -817,6 +817,11 @@ window.sim = {
     renderFrame();
   },
 
+  // Advance the simulation without rendering (fast headless tests)
+  advance(n) {
+    for (let i = 0; i < n; i++) stepSimulation(0.016);
+  },
+
   // Run multiple simulation steps
   steps(n) {
     for (let i = 0; i < n; i++) stepSimulation(0.016);
