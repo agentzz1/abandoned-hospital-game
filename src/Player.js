@@ -153,8 +153,11 @@ export class Player {
   _bindMouse() {
     const canvas = document.querySelector('canvas');
     const hint = document.getElementById('click-to-play');
-    const lock = () => { if (!this.locked) (canvas || document.body).requestPointerLock(); };
-    canvas?.addEventListener('click', lock);
+    // Pointer lock can be refused (embedded frames, phones); arrow keys still work then.
+    const lock = () => {
+      if (this.locked) return;
+      try { (canvas || document.body).requestPointerLock()?.catch?.(() => {}); } catch { /* unsupported */ }
+    };
     document.addEventListener('click', e => {
       if (e.target.closest('#note-overlay, #win-overlay, #pause-overlay, #settings-overlay, #intro-overlay, button')) return;
       lock();

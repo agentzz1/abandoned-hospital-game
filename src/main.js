@@ -162,6 +162,15 @@ let lastFrameTime = performance.now();
 let simulationTime = 0;
 let presenceTimer = 45 + Math.random() * 45;
 
+// Browsers keep an AudioContext suspended until a user gesture, so unlock it on the first one.
+const unlockAudio = () => {
+  if (gameState.mode !== "paused") audioManager.context.resume().catch(() => {});
+  window.removeEventListener("pointerdown", unlockAudio, true);
+  window.removeEventListener("keydown", unlockAudio, true);
+};
+window.addEventListener("pointerdown", unlockAudio, true);
+window.addEventListener("keydown", unlockAudio, true);
+
 // Auto-start
 setTimeout(() => {
   audioManager.init();
