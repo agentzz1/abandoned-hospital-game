@@ -20,10 +20,8 @@ export class Level {
     const wood = createPBRMaterial("wood", { repeat: [2, 2], seed: 200 });
     const paper = new THREE.MeshStandardMaterial({ color: 0xe8e0d0, roughness: 0.95, side: THREE.DoubleSide });
     const fabric = new THREE.MeshStandardMaterial({ color: 0x5a7a6a, roughness: 0.92 });
-    const pipe = createPBRMaterial("metal", { seed: 300 });
     const floorMat = createPBRMaterial("concrete", { repeat: [6, 6], seed: 500, baseR: 80, baseG: 82, baseB: 85 });
     const ceilMat = createPBRMaterial("ceiling", { repeat: [4, 4], seed: 600 });
-    const tileMat = createPBRMaterial("tile", { repeat: [8, 8], seed: 700 });
 
     const H = 3;
 
@@ -153,8 +151,8 @@ export class Level {
       const p = this._b(paper, 0.15, 0.01, 0.2, (Math.random()-.5)*4, 0.01, -3+Math.random()*10, false);
       p.rotation.y = Math.random() * Math.PI;
     }
-    this._b(pipe, 0.06, 0.06, 15, -2.8, 2.9, 2, false);
-    this._b(pipe, 0.06, 0.06, 15, 2.8, 2.9, 2, false);
+    this._b(metal, 0.06, 0.06, 15, -2.8, 2.9, 2, false);
+    this._b(metal, 0.06, 0.06, 15, 2.8, 2.9, 2, false);
 
     // ========== LIGHTING ==========
 

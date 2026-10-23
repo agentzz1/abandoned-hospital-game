@@ -130,6 +130,9 @@ const stats = loadStats();
 stats.totalRuns += 1;
 saveStats();
 
+// Let the loading screen paint before texture generation blocks the main thread.
+await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 0)));
+
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0a0c10);
 scene.fog = new THREE.FogExp2(0x0a0c10, 0.018);
@@ -720,6 +723,15 @@ function renderFrame(deltaSeconds = 1 / 60) {
   postFX.render(deltaSeconds);
 }
 
+let loadingScreen = document.getElementById("loading");
+function hideLoadingScreen() {
+  if (!loadingScreen) return;
+  const el = loadingScreen;
+  loadingScreen = null;
+  el.classList.add("done");
+  setTimeout(() => el.remove(), 700);
+}
+
 function frame(now) {
   // The first rAF timestamp can predate module init (texture generation takes a
   // while), which used to feed a large negative delta into the whole simulation.
@@ -727,6 +739,7 @@ function frame(now) {
   lastFrameTime = now;
   stepSimulation(deltaSeconds);
   renderFrame(deltaSeconds);
+  hideLoadingScreen();
   requestAnimationFrame(frame);
 }
 
