@@ -252,6 +252,7 @@ export class Orderly {
     this.onCatch = null;
     this.onHuntStart = null;
     this.onInspectArrive = null;
+    this.onStep = null;
     this.inspectTarget = null;
     this.position = new THREE.Vector3();
     this.heading = 0;
@@ -417,7 +418,10 @@ export class Orderly {
     const { legL, legR, armL, armR, torso, head } = this._parts;
     const pace = this.moving ? this.speed : 0;
     this._animTime += dt * (this.moving ? 2.2 + pace * 1.3 : 1);
-    const swing = this.moving ? Math.sin(this._animTime) * Math.min(0.55, 0.22 + pace * 0.08) : 0;
+    const phase = Math.sin(this._animTime);
+    if (this.moving && Math.sign(phase) !== Math.sign(this._lastPhase || 0)) this.onStep?.();
+    this._lastPhase = phase;
+    const swing = this.moving ? phase * Math.min(0.55, 0.22 + pace * 0.08) : 0;
     legL.rotation.x = swing; legR.rotation.x = -swing;
     // Arms hang forward and reach out further while hunting.
     const reach = this.state === 'hunt' ? 0.7 : 0.18;

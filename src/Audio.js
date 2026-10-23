@@ -283,6 +283,63 @@ export class AudioManager {
     src.start(when);
   }
 
+  // One of the Orderly's footsteps: a heavy thud and a scrape, placed by distance and direction,
+  // and low-passed when a wall is in between.
+  playOrderlyStep(dist, pan, muffled, hunting) {
+    if (!this.initialized || this.muted || dist > 24) return;
+    const ctx = this.context, now = ctx.currentTime;
+    const level = (hunting ? 0.9 : 0.6) / (1 + dist * 0.32);
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = muffled ? 420 : 2200;
+    const panner = ctx.createStereoPanner();
+    panner.pan.value = Math.max(-1, Math.min(1, pan));
+    lp.connect(panner); panner.connect(this.masterGain);
+
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(hunting ? 70 : 58, now);
+    o.frequency.exponentialRampToValueAtTime(30, now + 0.16);
+    g.gain.setValueAtTime(level, now);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+    o.connect(g); g.connect(lp);
+    o.start(now); o.stop(now + 0.22);
+
+    const len = Math.floor(ctx.sampleRate * 0.22);
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * i / len) * 0.6;
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 700;
+    bp.Q.value = 1.2;
+    const sg = ctx.createGain();
+    sg.gain.value = level * 0.5;
+    src.connect(bp); bp.connect(sg); sg.connect(lp);
+    src.start(now + 0.03);
+  }
+
+  // Lub-dub, for the player's own pulse.
+  playHeartbeat(level) {
+    if (!this.initialized || this.muted || level <= 0.01) return;
+    const ctx = this.context, now = ctx.currentTime;
+    for (const [offset, amp] of [[0, 1], [0.15, 0.7]]) {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(52, now + offset);
+      o.frequency.exponentialRampToValueAtTime(36, now + offset + 0.12);
+      g.gain.setValueAtTime(0.0001, now + offset);
+      g.gain.exponentialRampToValueAtTime(level * amp, now + offset + 0.015);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.16);
+      o.connect(g); g.connect(this.masterGain);
+      o.start(now + offset); o.stop(now + offset + 0.18);
+    }
+  }
+
   _metalHit(when, freq, level, decay) {
     const ctx = this.context;
     const g = ctx.createGain();

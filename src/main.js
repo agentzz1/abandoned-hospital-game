@@ -27,6 +27,8 @@ const ui = {
   volumeSlider: document.getElementById("volume-slider"),
   sensitivitySlider: document.getElementById("sensitivity-slider"),
   invertYCheckbox: document.getElementById("invert-y-checkbox"),
+  exploreCheckbox: document.getElementById("explore-checkbox"),
+  threatEye: document.getElementById("threat-eye"),
   objPipBlue: document.getElementById("obj-pip-blue"),
   objPipOrange: document.getElementById("obj-pip-orange"),
   batteryFill: document.getElementById("battery-fill"),
@@ -46,7 +48,7 @@ function uiSet(el, prop, val) {
 }
 
 const SETTINGS_KEY = "hospitalGame.settings";
-const DEFAULT_SETTINGS = { volume: 0.5, mouseSensitivity: 1.0, invertY: false };
+const DEFAULT_SETTINGS = { volume: 0.5, mouseSensitivity: 1.0, invertY: false, orderlyEnabled: true };
 
 function loadSettings() {
   try {
@@ -57,6 +59,7 @@ function loadSettings() {
       volume: typeof parsed.volume === "number" ? parsed.volume : DEFAULT_SETTINGS.volume,
       mouseSensitivity: typeof parsed.mouseSensitivity === "number" ? parsed.mouseSensitivity : DEFAULT_SETTINGS.mouseSensitivity,
       invertY: typeof parsed.invertY === "boolean" ? parsed.invertY : DEFAULT_SETTINGS.invertY,
+      orderlyEnabled: typeof parsed.orderlyEnabled === "boolean" ? parsed.orderlyEnabled : DEFAULT_SETTINGS.orderlyEnabled,
     };
   } catch {
     return { ...DEFAULT_SETTINGS };
@@ -162,6 +165,16 @@ const orderly = new Orderly(scene, nav);
 orderly.onCatch = catchPlayer;
 orderly.onHuntStart = () => audioManager.playSpottedStinger?.();
 orderly.onInspectArrive = () => audioManager.playLockerRattle?.();
+orderly.onStep = () => {
+  const dx = orderly.position.x - camera.position.x, dz = orderly.position.z - camera.position.z;
+  const dist = Math.hypot(dx, dz);
+  // Camera right vector on the floor plane is (cos yaw, -sin yaw).
+  const pan = dist > 0.01 ? (dx * Math.cos(player.yaw) - dz * Math.sin(player.yaw)) / dist : 0;
+  const muffled = !nav.hasLineOfSight(orderly.position.x, orderly.position.z, camera.position.x, camera.position.z);
+  audioManager.playOrderlyStep(dist, pan * 0.85, muffled, orderly.state === "hunt");
+};
+let heartbeatTimer = 0;
+let lastEyeState = "";
 interaction.onHide = (locker) => {
   if (!orderlyEnabled() || orderly.state === "dormant" || orderly.immuneTime > 0) return;
   const d = locker.userData;
@@ -227,7 +240,7 @@ if (introOverlay) {
     introOverlay.style.opacity = "0";
     introOverlay.style.transition = "opacity 1s";
     setTimeout(() => { introOverlay.style.display = "none"; }, 1000);
-  }, 4000);
+  }, 7000);
 }
 
 window.addEventListener("resize", onWindowResize, false);
@@ -256,6 +269,13 @@ ui.invertYCheckbox?.addEventListener("change", () => {
   gameState.settings.invertY = ui.invertYCheckbox.checked;
   saveSettings();
 });
+if (ui.exploreCheckbox) ui.exploreCheckbox.checked = !gameState.settings.orderlyEnabled;
+ui.exploreCheckbox?.addEventListener("change", () => {
+  gameState.settings.orderlyEnabled = !ui.exploreCheckbox.checked;
+  orderly.mesh.visible = gameState.settings.orderlyEnabled;
+  saveSettings();
+});
+orderly.mesh.visible = orderlyEnabled();
 
 let lastBatteryShown = -1;
 let lastStaminaShown = -1;
@@ -427,6 +447,8 @@ function updateWinStats() {
   const recordBadge = document.getElementById("new-record-badge");
   if (statBest) statBest.textContent = stats.bestTimeMs != null ? formatTime(stats.bestTimeMs) : "noch kein Rekord";
   if (statRuns) statRuns.textContent = String(stats.totalRuns);
+  const statCaught = document.getElementById("stat-caught");
+  if (statCaught) statCaught.textContent = orderlyEnabled() ? String(gameState.catches) : "-";
   if (recordBadge) recordBadge.style.display = isNewRecord ? "inline-block" : "none";
 }
 
@@ -438,6 +460,7 @@ window.updateWinStats = updateWinStats;
 function refreshUi() {
   updateObjectivePips();
   updateVitals();
+  updateThreatEye();
   uiSet(ui.statusText, 'textContent', describeStatus());
   uiSet(ui.winMessage, 'textContent', gameState.message);
   window._gameElapsed = gameState.elapsed;
@@ -606,10 +629,43 @@ function updateOrderly(dt) {
   }
   if (gameState.mode !== "playing") return;
   orderly.update(dt, camera.position);
+  updateHeartbeat(dt);
   if (wasDormant && orderly.state !== "dormant") {
     audioManager.playDistantReaction?.(orderly.position);
     showNotification("Irgendwo faellt eine Tuer ins Schloss.");
   }
+}
+
+// 0 when he is far and calm, 1 when he is hunting you up close.
+function threatLevel() {
+  if (orderly.state === "dormant") return 0;
+  const dist = Math.hypot(orderly.position.x - camera.position.x, orderly.position.z - camera.position.z);
+  const proximity = Math.max(0, 1 - dist / 11);
+  if (orderly.state === "hunt") return Math.max(0.75, proximity);
+  if (orderly.state === "inspect") return Math.max(0.6, proximity);
+  return proximity * (orderly.state === "patrol" ? 0.7 : 0.9);
+}
+
+function updateHeartbeat(dt) {
+  const threat = threatLevel();
+  heartbeatTimer -= dt;
+  if (threat < 0.12 || heartbeatTimer > 0) return;
+  heartbeatTimer = 1.15 - threat * 0.72;
+  audioManager.playHeartbeat(0.12 + threat * 0.5);
+}
+
+function updateThreatEye() {
+  if (!ui.threatEye) return;
+  let state = "none";
+  if (orderlyEnabled() && orderly.state !== "dormant") {
+    if (orderly.state === "hunt") state = "hunt";
+    else if (orderly.awareness > 0.05 || orderly.state === "investigate" || orderly.state === "inspect") state = "aware";
+  }
+  if (state !== lastEyeState) {
+    ui.threatEye.className = state;
+    lastEyeState = state;
+  }
+  if (state === "aware") ui.threatEye.style.setProperty("--fill", String(0.3 + orderly.awareness * 0.7));
 }
 
 function catchPlayer() {

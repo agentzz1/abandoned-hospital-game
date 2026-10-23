@@ -131,7 +131,7 @@ export class Level {
     note.position.set(0, 1.5, -6.83); note.rotation.y = 0; note.receiveShadow = true;
     this.notePosition = note.position;
     note.userData = { type: "note", prompt: "Notiz lesen",
-      text: "Hinweis:\n\n2 Schluessel versteckt.\nBLAU = linker Raum oben (Aktenraum)\nORANGE = rechter Raum unten (Lager)\n\nAusgang = Norden (Gang hoch)\n\nWASD laufen, Maus/Pfeiltasten schauen\nShift rennen, C ducken, E benutzen\nM = Sound aus"
+      text: "Wer das findet:\n\nDer Waerter macht noch immer seine Runden.\nEr hoert dich, wenn du rennst.\nEr sieht dein Licht von weitem. Mach es aus, wenn er nah ist.\nSieht er dich: lauf, brich den Blickkontakt, versteck dich in einem Spind.\n\nBLAU = Aktenraum (oben links)\nORANGE = Lager (unten rechts)\nAusgang = Norden, den Gang hoch\n\nF Lampe   C ducken   E Spind"
     };
     this.scene.add(note);
 
