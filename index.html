@@ -2,7 +2,7 @@
 <html lang="de">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Verlassenes Krankenhaus</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <style>
@@ -22,7 +22,7 @@
 
       /* HUD */
       #hud { position:absolute; top:20px; left:20px; display:grid; gap:10px; width:min(360px,calc(100vw - 40px)); }
-      .hud-card { padding:14px 16px; border:1px solid var(--border); border-radius:16px; background:linear-gradient(135deg,rgba(15,18,24,0.85),rgba(8,10,14,0.75)); box-shadow:var(--shadow); backdrop-filter:blur(12px); }
+      .hud-card { padding:14px 16px; border:1px solid var(--border); border-radius:16px; background:linear-gradient(135deg,rgba(15,18,24,0.85),rgba(8,10,14,0.75)); box-shadow:var(--shadow); -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px); }
       .hud-label { display:flex; align-items:center; gap:6px; margin-bottom:6px; font-size:11px; font-weight:600; letter-spacing:0.18em; text-transform:uppercase; color:var(--accent); }
       .hud-value { display:block; font-size:16px; font-weight:500; line-height:1.4; color:var(--text); }
       .hud-value.status { font-size:13px; color:var(--muted); }
@@ -35,7 +35,7 @@
 
       /* Key indicator */
       #key-indicator { position:absolute; top:20px; right:20px; display:flex; gap:12px; }
-      .key-slot { position:relative; width:44px; height:44px; border:2px solid rgba(255,255,255,0.15); border-radius:12px; background:rgba(30,20,40,0.7); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; transition:all 0.4s; opacity:0.5; }
+      .key-slot { position:relative; width:44px; height:44px; border:2px solid rgba(255,255,255,0.15); border-radius:12px; background:rgba(30,20,40,0.7); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; transition:all 0.4s; opacity:0.5; }
       .key-slot.collected { border-color:var(--accent-green); background:rgba(102,238,136,0.15); opacity:1; box-shadow:var(--glow-green); transform:scale(1.1); }
       .key-slot.locked-flash { animation:keySlotLockedFlash 0.4s ease; }
       @keyframes keySlotLockedFlash {
@@ -58,7 +58,7 @@
       @media (prefers-reduced-motion: reduce) { #loading-bar::after { animation:none; width:100%; opacity:0.5; } }
 
       /* Vitals: flashlight charge + breath */
-      #vitals { position:absolute; left:20px; bottom:20px; display:grid; gap:8px; width:200px; padding:12px 14px; border:1px solid var(--border); border-radius:14px; background:rgba(8,10,14,0.7); backdrop-filter:blur(8px); }
+      #vitals { position:absolute; left:20px; bottom:20px; display:grid; gap:8px; width:200px; padding:12px 14px; border:1px solid var(--border); border-radius:14px; background:rgba(8,10,14,0.7); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); }
       .vital { display:grid; grid-template-columns:44px 1fr 36px; align-items:center; gap:8px; font-size:10px; font-weight:600; letter-spacing:0.14em; text-transform:uppercase; color:var(--muted); }
       .vital-bar { height:6px; border-radius:3px; background:rgba(255,255,255,0.07); overflow:hidden; }
       .vital-fill { height:100%; width:100%; border-radius:3px; transition:width 0.25s linear, background 0.3s; }
@@ -107,7 +107,7 @@
       @keyframes catchFade { to { opacity:0; } }
 
       /* Timer */
-      #timer { position:absolute; top:74px; right:20px; padding:8px 14px; border:1px solid var(--border); border-radius:10px; background:rgba(10,12,16,0.6); backdrop-filter:blur(8px); font-family:"JetBrains Mono",monospace; font-size:14px; color:var(--muted); }
+      #timer { position:absolute; top:74px; right:20px; padding:8px 14px; border:1px solid var(--border); border-radius:10px; background:rgba(10,12,16,0.6); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); font-family:"JetBrains Mono",monospace; font-size:14px; color:var(--muted); }
 
       /* Compass */
       #compass { position:absolute; bottom:80px; left:50%; transform:translateX(-50%); width:60px; height:60px; pointer-events:none; }
@@ -125,11 +125,11 @@
       #crosshair::after { left:50%; top:0; bottom:0; width:1px; margin-left:-0.5px; }
 
       /* Interaction prompt */
-      #interaction-prompt { position:absolute; left:50%; bottom:16%; transform:translateX(-50%); padding:12px 20px; border:1px solid rgba(139,211,255,0.2); border-radius:14px; background:rgba(2,3,5,0.75); color:var(--text); font-size:14px; font-weight:500; text-align:center; backdrop-filter:blur(10px); box-shadow:var(--shadow),var(--glow-blue); display:none; white-space:nowrap; }
+      #interaction-prompt { position:absolute; left:50%; bottom:16%; transform:translateX(-50%); padding:12px 20px; border:1px solid rgba(139,211,255,0.2); border-radius:14px; background:rgba(2,3,5,0.75); color:var(--text); font-size:14px; font-weight:500; text-align:center; -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); box-shadow:var(--shadow),var(--glow-blue); display:none; white-space:nowrap; }
 
       /* Intro overlay (brief instructions) */
       #intro-overlay { position:absolute; inset:0; display:none; align-items:center; justify-content:center; pointer-events:none; z-index:50; }
-      #intro-card { padding:32px 48px; border:1px solid rgba(139,211,255,0.15); border-radius:24px; background:rgba(5,8,12,0.92); backdrop-filter:blur(16px); text-align:center; max-width:500px; }
+      #intro-card { padding:32px 48px; border:1px solid rgba(139,211,255,0.15); border-radius:24px; background:rgba(5,8,12,0.92); -webkit-backdrop-filter:blur(16px); backdrop-filter:blur(16px); text-align:center; max-width:500px; }
       #intro-card h2 { margin:0 0 12px; font-size:24px; color:var(--accent); }
       #intro-card p { margin:0; color:var(--muted); font-size:14px; line-height:1.7; }
       #intro-card .keys { margin-top:16px; display:flex; flex-wrap:wrap; gap:10px; justify-content:center; }
@@ -137,7 +137,7 @@
       #intro-card .key-hint strong { color:var(--accent); }
 
       /* Note overlay */
-      #note-overlay { position:absolute; inset:0; display:none; align-items:center; justify-content:center; pointer-events:auto; background:rgba(0,0,0,0.8); backdrop-filter:blur(4px); }
+      #note-overlay { position:absolute; inset:0; display:none; align-items:center; justify-content:center; pointer-events:auto; background:rgba(0,0,0,0.8); -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px); }
       #note-card { width:min(640px,calc(100vw - 40px)); padding:28px; border:1px solid rgba(255,255,255,0.08); border-radius:24px; background:linear-gradient(180deg,rgba(247,244,232,0.97),rgba(229,224,208,0.95)); color:#1a1a18; box-shadow:var(--shadow); }
       #note-text { white-space:pre-wrap; font-family:"JetBrains Mono",monospace; font-size:15px; line-height:1.6; min-height:180px; color:#2a2a25; }
       .action-row { display:flex; gap:10px; margin-top:24px; }
@@ -146,7 +146,7 @@
       #close-note { background:linear-gradient(135deg,#2a2520,#1a1815); color:#e8e4d8; box-shadow:0 8px 20px rgba(0,0,0,0.25); }
 
       /* Pause overlay */
-      #pause-overlay { position:absolute; inset:0; display:none; align-items:center; justify-content:center; pointer-events:auto; background:rgba(0,0,0,0.8); backdrop-filter:blur(4px); }
+      #pause-overlay { position:absolute; inset:0; display:none; align-items:center; justify-content:center; pointer-events:auto; background:rgba(0,0,0,0.8); -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px); }
       #pause-card { width:min(440px,calc(100vw - 40px)); padding:28px; border:1px solid rgba(255,255,255,0.08); border-radius:24px; background:linear-gradient(180deg,rgba(15,18,24,0.97),rgba(8,10,14,0.98)); box-shadow:var(--shadow); }
       #pause-card h2 { margin:0 0 16px; font-size:22px; color:var(--accent); }
       #pause-controls { margin:0 0 20px; padding:14px 16px; border:1px solid var(--border); border-radius:14px; background:rgba(0,0,0,0.25); }
@@ -159,7 +159,7 @@
       #settings-button { background:linear-gradient(135deg,#1a2a3a,#0d1a24); color:var(--accent); box-shadow:0 8px 20px rgba(0,0,0,0.25); }
 
       /* Settings overlay */
-      #settings-overlay { position:absolute; inset:0; display:none; align-items:center; justify-content:center; pointer-events:auto; background:rgba(0,0,0,0.8); backdrop-filter:blur(4px); }
+      #settings-overlay { position:absolute; inset:0; display:none; align-items:center; justify-content:center; pointer-events:auto; background:rgba(0,0,0,0.8); -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px); }
       #settings-card { width:min(440px,calc(100vw - 40px)); padding:28px; border:1px solid rgba(255,255,255,0.08); border-radius:24px; background:linear-gradient(180deg,rgba(15,18,24,0.97),rgba(8,10,14,0.98)); box-shadow:var(--shadow); }
       #settings-card h2 { margin:0 0 16px; font-size:22px; color:var(--accent); }
       #settings-controls { margin:0 0 20px; padding:14px 16px; border:1px solid var(--border); border-radius:14px; background:rgba(0,0,0,0.25); display:grid; gap:16px; }
@@ -186,7 +186,7 @@
       #restart-button { background:linear-gradient(135deg,#1a3a2a,#0d1f18); color:var(--accent-green); box-shadow:0 10px 24px rgba(0,0,0,0.25); }
 
       /* Notification */
-      #notification { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); padding:16px 24px; border:1px solid rgba(139,211,255,0.3); border-radius:16px; background:rgba(5,15,25,0.85); color:var(--accent); font-size:16px; font-weight:600; text-align:center; backdrop-filter:blur(10px); box-shadow:var(--shadow),var(--glow-blue); display:none; z-index:20; }
+      #notification { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); padding:16px 24px; border:1px solid rgba(139,211,255,0.3); border-radius:16px; background:rgba(5,15,25,0.85); color:var(--accent); font-size:16px; font-weight:600; text-align:center; -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); box-shadow:var(--shadow),var(--glow-blue); display:none; z-index:20; }
 
       /* Screen shake */
       .shake { animation:screenShake 0.3s ease; }
@@ -203,6 +203,62 @@
       @keyframes jumpscareFlash { 0%{opacity:1} 50%{opacity:1} 100%{opacity:0} }
       .jumpscare-face { font-size:120px; animation:jumpscareFace 0.4s ease; filter:brightness(2) contrast(1.5); }
       @keyframes jumpscareFace { 0%{transform:scale(0.3); opacity:0} 30%{transform:scale(1.5); opacity:1} 100%{transform:scale(2); opacity:0} }
+
+      /* Touch devices: on-screen controls and a compact HUD */
+      .touch-only { display:none !important; }
+      body.touch .desktop-only { display:none !important; }
+      body.touch .keys.touch-only { display:flex !important; }
+      body.touch ul.touch-only { display:grid !important; }
+      body.touch { touch-action:none; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; overscroll-behavior:none; }
+      body.touch #note-overlay, body.touch #pause-overlay, body.touch #settings-overlay, body.touch #win-overlay { touch-action:pan-y; }
+      #note-card, #pause-card, #settings-card, #win-card, #intro-card { max-height:calc(100% - 24px); overflow:auto; }
+
+      #touch-controls { position:absolute; inset:0; pointer-events:none; }
+      #touch-look-zone { position:absolute; top:0; bottom:0; right:0; width:55%; pointer-events:auto; touch-action:none; }
+      #touch-joy-zone { position:absolute; left:0; bottom:0; width:45%; height:70%; pointer-events:auto; touch-action:none; }
+      #touch-joy-base { position:absolute; left:calc(84px + env(safe-area-inset-left, 0px)); top:calc(100% - 96px - env(safe-area-inset-bottom, 0px)); width:112px; height:112px; margin:-56px 0 0 -56px; border-radius:50%; border:2px solid rgba(184,200,224,0.25); background:rgba(8,10,14,0.35); opacity:0.45; pointer-events:none; transition:opacity 0.15s; }
+      #touch-joy-base.active { opacity:1; transition:none; }
+      #touch-joy-knob { position:absolute; left:50%; top:50%; width:50px; height:50px; margin:-25px 0 0 -25px; border-radius:50%; background:rgba(184,200,224,0.55); box-shadow:0 0 12px rgba(184,200,224,0.25); }
+      #touch-buttons { position:absolute; right:calc(16px + env(safe-area-inset-right, 0px)); bottom:calc(16px + env(safe-area-inset-bottom, 0px)); display:grid; grid-template-columns:auto auto; grid-template-rows:auto auto; gap:12px; align-items:end; justify-items:end; pointer-events:none; }
+      #touch-buttons button, #touch-pause { pointer-events:auto; touch-action:none; -webkit-tap-highlight-color:transparent; border:1px solid rgba(184,200,224,0.28); background:rgba(8,10,14,0.55); color:var(--text); font-size:12px; font-weight:600; letter-spacing:0.04em; padding:0; border-radius:50%; }
+      #touch-buttons button:hover, #touch-pause:hover { transform:none; }
+      #touch-use { grid-column:2; grid-row:1 / span 2; width:84px; height:84px; font-size:13px; }
+      #touch-light, #touch-crouch { width:62px; height:62px; }
+      #touch-crouch { grid-column:1; grid-row:2; }
+      #touch-light { grid-column:1; grid-row:1; }
+      #touch-use.ready { border-color:var(--accent-green); color:var(--accent-green); box-shadow:0 0 14px rgba(128,192,144,0.45); }
+      #touch-light.on { border-color:#f2c14e; color:#f2c14e; }
+      #touch-crouch.on { border-color:var(--accent); background:rgba(184,200,224,0.18); }
+      #touch-controls.inactive #touch-look-zone, #touch-controls.inactive #touch-joy-zone,
+      #touch-controls.inactive #touch-joy-base, #touch-controls.inactive #touch-buttons { display:none; }
+      #touch-pause { z-index:70; position:absolute; top:calc(12px + env(safe-area-inset-top, 0px)); right:calc(12px + env(safe-area-inset-right, 0px)); width:44px; height:44px; border-radius:12px; font-size:14px; letter-spacing:0.1em; }
+
+      body.touch #hud { top:calc(10px + env(safe-area-inset-top, 0px)); left:calc(10px + env(safe-area-inset-left, 0px)); width:min(250px, 40vw); gap:6px; }
+      body.touch .hud-card { padding:8px 12px; border-radius:12px; }
+      body.touch .hud-card:nth-child(2) { display:none; }
+      body.touch .hud-label { margin-bottom:4px; font-size:9px; }
+      body.touch .hud-value { font-size:13px; }
+      body.touch #key-indicator { top:calc(12px + env(safe-area-inset-top, 0px)); right:calc(66px + env(safe-area-inset-right, 0px)); gap:8px; }
+      body.touch .key-slot { width:38px; height:38px; }
+      body.touch #timer { display:none; }
+      body.touch #vitals { left:50%; top:calc(10px + env(safe-area-inset-top, 0px)); bottom:auto; transform:translateX(-50%); width:150px; padding:8px 10px; gap:5px; }
+      body.touch #compass { bottom:calc(26px + env(safe-area-inset-bottom, 0px)); width:46px; height:46px; }
+      body.touch #compass-arrow { font-size:24px; }
+      body.touch #interaction-prompt { bottom:30%; font-size:13px; padding:8px 14px; }
+      body.touch #intro-card { padding:18px 20px; }
+      body.touch #intro-card h2 { font-size:19px; margin-bottom:8px; }
+      body.touch #intro-card p { font-size:12px; line-height:1.5; }
+      body.touch #intro-card .key-hint { padding:6px 10px; font-size:11px; }
+      body.touch #hide-label { top:calc(64px + env(safe-area-inset-top, 0px)); }
+
+      /* Portrait phones: the game is playable but much better sideways */
+      #rotate-hint { display:none; }
+      @media (orientation: portrait) {
+        body.touch #rotate-hint { display:block; position:absolute; left:50%; top:46%; transform:translateX(-50%); padding:8px 14px; border-radius:999px; background:rgba(8,10,14,0.8); border:1px solid var(--border); font-size:12px; color:var(--muted); white-space:nowrap; pointer-events:none; z-index:5; }
+        body.touch #hud { width:calc(100vw - 200px); }
+        body.touch #vitals { left:calc(10px + env(safe-area-inset-left, 0px)); transform:none; top:calc(96px + env(safe-area-inset-top, 0px)); }
+        body.touch #compass { bottom:calc(200px + env(safe-area-inset-bottom, 0px)); }
+      }
 
       @media (max-width:720px) {
         #hud { width:calc(100vw - 24px); left:12px; top:12px; }
@@ -259,13 +315,14 @@
       <div id="crosshair"></div>
       <div id="interaction-prompt">E - Interagieren</div>
       <div id="notification"></div>
+      <div id="rotate-hint">Dreh dein Handy quer</div>
 
       <div id="catch-overlay" hidden>
         <div id="catch-text"><strong>Er hat dich erwischt.</strong><span>Was du gefunden hast, bleibt bei dir.</span></div>
       </div>
 
       <!-- Click to play overlay -->
-      <div id="click-to-play" style="position:absolute; bottom:12%; left:50%; transform:translateX(-50%); padding:10px 24px; border:1px solid rgba(184,200,224,0.2); border-radius:12px; background:rgba(5,8,12,0.8); color:var(--accent); font-size:14px; font-weight:500; pointer-events:none; opacity:0.7; z-index:4;">
+      <div id="click-to-play" class="desktop-only" style="position:absolute; bottom:12%; left:50%; transform:translateX(-50%); padding:10px 24px; border:1px solid rgba(184,200,224,0.2); border-radius:12px; background:rgba(5,8,12,0.8); color:var(--accent); font-size:14px; font-weight:500; pointer-events:none; opacity:0.7; z-index:4;">
         Klicken zum Spielen (Maussteuerung)
       </div>
 
@@ -274,13 +331,19 @@
         <div id="intro-card">
           <h2>Verlassenes Krankenhaus</h2>
           <p>Finde 2 Schluessel und entkomme. Du bist nicht allein: Der Waerter hoert dich rennen und sieht dein Licht. Versteck dich in Spinden.</p>
-          <div class="keys">
+          <div class="keys desktop-only">
             <div class="key-hint"><strong>WASD</strong> laufen</div>
             <div class="key-hint"><strong>Maus / Pfeiltasten</strong> schauen</div>
             <div class="key-hint"><strong>Shift</strong> rennen</div>
             <div class="key-hint"><strong>C</strong> ducken</div>
             <div class="key-hint"><strong>F</strong> Taschenlampe</div>
             <div class="key-hint"><strong>E</strong> benutzen / verstecken</div>
+          </div>
+          <div class="keys touch-only">
+            <div class="key-hint"><strong>Linker Daumen</strong> laufen, ganz raus = rennen</div>
+            <div class="key-hint"><strong>Rechts wischen</strong> umsehen</div>
+            <div class="key-hint"><strong>Benutzen</strong> aufheben / Spind</div>
+            <div class="key-hint"><strong>Lampe</strong> an / aus</div>
           </div>
         </div>
       </div>
@@ -301,9 +364,9 @@
           <h2>Pausiert</h2>
           <div id="pause-controls">
             <h3>Steuerung</h3>
-            <ul>
-              <li><span>Bewegen</span><strong>WASD / Pfeiltasten</strong></li>
-              <li><span>Umsehen</span><strong>Maus</strong></li>
+            <ul class="desktop-only">
+              <li><span>Bewegen</span><strong>WASD</strong></li>
+              <li><span>Umsehen</span><strong>Maus / Pfeiltasten</strong></li>
               <li><span>Rennen</span><strong>Shift</strong></li>
               <li><span>Ducken</span><strong>Strg / C</strong></li>
               <li><span>Taschenlampe</span><strong>F</strong></li>
@@ -311,6 +374,13 @@
               <li><span>Ton an/aus</span><strong>M</strong></li>
               <li><span>Vollbild</span><strong>O</strong></li>
               <li><span>Pause</span><strong>Esc</strong></li>
+            </ul>
+            <ul class="touch-only">
+              <li><span>Bewegen</span><strong>Linker Daumen</strong></li>
+              <li><span>Rennen</span><strong>Stick ganz raus</strong></li>
+              <li><span>Umsehen</span><strong>Rechts wischen</strong></li>
+              <li><span>Ducken / Lampe</span><strong>Knoepfe rechts</strong></li>
+              <li><span>Aufheben / Spind</span><strong>Benutzen</strong></li>
             </ul>
           </div>
           <div class="action-row">

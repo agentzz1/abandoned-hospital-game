@@ -178,8 +178,15 @@ function metalMaterial(size, seed, repeat) {
   });
 }
 
+let defaultSize = 512;
+
+// Phones get smaller textures: four times less startup work, hard to tell apart on a small screen.
+export function setDefaultTextureSize(size) {
+  defaultSize = size;
+}
+
 export function createPBRMaterial(type, opts = {}) {
-  const size = opts.size || 512;
+  const size = opts.size || defaultSize;
   const seed = opts.seed || Math.floor(Math.random() * 1000);
   switch (type) {
     case "wood":

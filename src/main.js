@@ -5,6 +5,11 @@ import { Interaction } from './Interaction.js';
 import { AudioManager } from './Audio.js';
 import { PostFX } from './PostFX.js';
 import { NavGrid, Orderly } from './Orderly.js';
+import { TouchControls } from './TouchControls.js';
+import { setDefaultTextureSize } from './TextureGen.js';
+
+// Phones and tablets: touch controls, lighter textures and a lower starting resolution.
+const prefersTouch = window.matchMedia?.('(pointer: coarse)').matches ?? false;
 
 const ui = {
   instructions: document.getElementById("instructions"),
@@ -156,10 +161,12 @@ if ("outputColorSpace" in renderer) {
 document.body.appendChild(renderer.domElement);
 
 // Post-processing pipeline
-const postFX = new PostFX(renderer, scene, camera, window.innerWidth, window.innerHeight);
+const postFX = new PostFX(renderer, scene, camera, window.innerWidth, window.innerHeight,
+  prefersTouch ? { maxPixelRatio: 1.25, startPixelRatio: 1 } : {});
 
 const audioManager = new AudioManager(camera, scene);
 audioManager.setVolume(gameState.settings.volume);
+setDefaultTextureSize(prefersTouch ? 256 : 512);
 const level = new Level(scene);
 const player = new Player(camera, document.body, scene, level.walls, audioManager, ui, gameState);
 const interaction = new Interaction(camera, scene, player, audioManager, level, gameState, ui, refreshUi);
@@ -176,6 +183,21 @@ orderly.onStep = () => {
   const muffled = !nav.hasLineOfSight(orderly.position.x, orderly.position.z, camera.position.x, camera.position.z);
   audioManager.playOrderlyStep(dist, pan * 0.85, muffled, orderly.state === "hunt");
 };
+const touchControls = new TouchControls({
+  player, gameState,
+  onUse: pressUse,
+  onFlashlight: toggleFlashlight,
+  onPause: togglePause,
+});
+function enableTouchMode() {
+  if (touchControls.enabled) return;
+  touchControls.enable();
+  interaction.promptPrefix = "";
+  uiSet(ui.prompt, 'textContent', '');
+}
+if (prefersTouch) enableTouchMode();
+// Hybrid devices (touch laptops, iPad with keyboard) switch over on their first touch.
+window.addEventListener("touchstart", enableTouchMode, { once: true, passive: true });
 let heartbeatTimer = 0;
 let lastEyeState = "";
 interaction.onHide = (locker) => {
@@ -221,13 +243,20 @@ let simulationTime = 0;
 let presenceTimer = 45 + Math.random() * 45;
 
 // Browsers keep an AudioContext suspended until a user gesture, so unlock it on the first one.
+// iOS Safari only unlocks audio on some gesture types (touchend, click), so keep trying on each
+// kind of gesture until the context is actually running.
+const UNLOCK_EVENTS = ["pointerdown", "pointerup", "touchend", "click", "keydown"];
 const unlockAudio = () => {
-  if (gameState.mode !== "paused") audioManager.context.resume().catch(() => {});
-  window.removeEventListener("pointerdown", unlockAudio, true);
-  window.removeEventListener("keydown", unlockAudio, true);
+  if (gameState.mode === "paused") return;
+  const ctx = audioManager.context;
+  const done = () => {
+    if (ctx.state !== "running") return;
+    for (const type of UNLOCK_EVENTS) window.removeEventListener(type, unlockAudio, true);
+  };
+  if (ctx.state === "running") { done(); return; }
+  ctx.resume().then(done, () => {});
 };
-window.addEventListener("pointerdown", unlockAudio, true);
-window.addEventListener("keydown", unlockAudio, true);
+for (const type of UNLOCK_EVENTS) window.addEventListener(type, unlockAudio, true);
 
 // Auto-start
 setTimeout(() => {
@@ -310,12 +339,10 @@ function onGlobalKeyDown(event) {
     if (ui.settingsOverlay && ui.settingsOverlay.style.display === "flex") { event.preventDefault(); closeSettings(); return; }
     if (gameState.mode === "playing") { event.preventDefault(); pauseGame(); return; }
     if (gameState.mode === "paused") { event.preventDefault(); resumeGame(); return; }
-    if (document.fullscreenElement) { event.preventDefault(); document.exitFullscreen().catch(() => {}); return; }
+    if (document.fullscreenElement) { event.preventDefault(); toggleFullscreen(); return; }
   }
   if (event.code === "KeyE" || event.code === "Enter" || event.code === "Space") {
-    // While a note is open the same key closes it again.
-    if (gameState.mode === "note") { event.preventDefault(); interaction.closeNote(); return; }
-    if (gameState.mode === "playing") { event.preventDefault(); interaction.interact(); return; }
+    if (gameState.mode === "note" || gameState.mode === "playing") { event.preventDefault(); pressUse(); return; }
   }
   if (event.code === "KeyR" && gameState.win) { event.preventDefault(); restartGame(); }
 }
@@ -371,16 +398,31 @@ function updateVitals() {
   ui.staminaVital?.classList.toggle('exhausted', player.exhausted);
 }
 
+// While a note is open, Use closes it again.
+function pressUse() {
+  if (gameState.mode === "note") interaction.closeNote();
+  else if (gameState.mode === "playing") interaction.interact();
+}
+
+function togglePause() {
+  if (gameState.mode === "playing") pauseGame();
+  else if (gameState.mode === "paused") resumeGame();
+}
+
+// iPhone Safari has no Fullscreen API, and older Safari returns no promise, so guard both calls.
 function toggleFullscreen() {
-  if (document.fullscreenElement) { document.exitFullscreen().catch(() => {}); return; }
-  document.documentElement.requestFullscreen?.().catch(() => {});
+  try {
+    if (document.fullscreenElement) { document.exitFullscreen?.()?.catch?.(() => {}); return; }
+    document.documentElement.requestFullscreen?.()?.catch?.(() => {});
+  } catch { /* not supported */ }
 }
 
 function restartGame() { window.location.reload(); }
 
 function pauseGame() {
   gameState.mode = "paused";
-  document.exitPointerLock();
+  // iOS Safari has no Pointer Lock API at all.
+  if (document.pointerLockElement) document.exitPointerLock?.();
   audioManager.context.suspend().catch(() => {});
   uiSet(ui.pauseOverlay, 'style.display', 'flex');
 }
@@ -461,6 +503,7 @@ window.showNotification = showNotification;
 window.updateWinStats = updateWinStats;
 
 function refreshUi() {
+  touchControls.update({ canUse: !!interaction.currentInteractable || player.hidden || gameState.mode === "note" });
   updateObjectivePips();
   updateVitals();
   updateThreatEye();
