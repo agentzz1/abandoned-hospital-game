@@ -283,6 +283,40 @@ export class AudioManager {
     src.start(when);
   }
 
+  _metalHit(when, freq, level, decay) {
+    const ctx = this.context;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(level, when);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + decay);
+    g.connect(this.masterGain);
+    for (const ratio of [1, 2.76, 5.4]) {
+      const o = ctx.createOscillator();
+      o.type = 'triangle';
+      o.frequency.value = freq * ratio;
+      const og = ctx.createGain();
+      og.gain.value = 1 / ratio;
+      o.connect(og); og.connect(g);
+      o.start(when); o.stop(when + decay);
+    }
+    this._noiseBurst(0.05, level * 0.6, 2200, when);
+  }
+
+  playLockerDoor() {
+    if (!this.initialized || this.muted) return;
+    const now = this.context.currentTime;
+    this._metalHit(now, 180, 0.22, 0.35);
+    this._metalHit(now + 0.12, 140, 0.12, 0.25);
+  }
+
+  // He grabs the locker handle and shakes it.
+  playLockerRattle() {
+    if (!this.initialized || this.muted) return;
+    const now = this.context.currentTime;
+    for (let i = 0; i < 7; i++) {
+      this._metalHit(now + i * 0.11 + Math.random() * 0.03, 150 + Math.random() * 60, 0.35, 0.18);
+    }
+  }
+
   playFlashlightClick() {
     if (!this.initialized || this.muted) return;
     const now = this.context.currentTime;

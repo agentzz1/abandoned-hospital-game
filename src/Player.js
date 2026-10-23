@@ -66,7 +66,7 @@ export class Player {
     for (const w of this.walls) {
       if (w.userData?.blocksMovement === false) continue;
       if (!w.geometry) continue;
-      w.updateMatrixWorld(true);
+      w.updateWorldMatrix(true, false);
       // World-space AABB: respects position, rotation and scale.
       box.setFromObject(w);
       if (box.isEmpty()) continue;
@@ -107,6 +107,26 @@ export class Player {
       set y(v) { self.yaw = v; self._setCamRot(); },
       get _y() { return self.yaw; },
     };
+  }
+
+  // Steps into a locker: fixed position, looking out through the door within a narrow arc.
+  enterHiding(inside, facing) {
+    this.clearInput();
+    this.hidden = true;
+    this._hideYaw = facing + Math.PI;
+    this.camera.position.set(inside.x, this.standHeight - 0.05, inside.z);
+    this.yaw = this._hideYaw;
+    this.pitch = 0;
+    this.eyeHeight = this.standHeight - 0.05;
+    this._setCamRot();
+  }
+
+  leaveHiding(front, facing) {
+    this.hidden = false;
+    this.camera.position.set(front.x, this.standHeight, front.z);
+    this.eyeHeight = this.standHeight;
+    this.yaw = facing + Math.PI;
+    this._setCamRot();
   }
 
   // How far (metres) the player can currently be heard. Read by the Orderly.
@@ -228,6 +248,21 @@ export class Player {
     if (this.lookDown)  this.pitch -= this.lookSpeed * lookSensMul * lookInvertY * dt;
     this.pitch = Math.max(-1.5, Math.min(1.5, this.pitch));
 
+    if (this.hidden) {
+      // Only peeking through the vents: a narrow look arc and no movement.
+      let d = this.yaw - this._hideYaw;
+      while (d > Math.PI) d -= Math.PI * 2;
+      while (d < -Math.PI) d += Math.PI * 2;
+      this.yaw = this._hideYaw + Math.max(-0.45, Math.min(0.45, d));
+      this.pitch = Math.max(-0.3, Math.min(0.25, this.pitch));
+      this.isMoving = false;
+      this.sprintingNow = false;
+      this.stamina = Math.min(1, this.stamina + 0.25 * dt);
+      if (this.exhausted && this.stamina > 0.35) this.exhausted = false;
+      this._setCamRot();
+      return;
+    }
+
     const sin = Math.sin(this.yaw);
     const cos = Math.cos(this.yaw);
 
@@ -311,6 +346,7 @@ export class Player {
 
   reset() {
     this.clearInput();
+    this.hidden = false;
     this.stamina = 1;
     this.exhausted = false;
     this.yaw = 0;

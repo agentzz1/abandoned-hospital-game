@@ -107,6 +107,15 @@ export class Level {
     this._key(0x44aaff, -6, 1.2, 9, "key1", "Bluer Schluessel", "I", "ring");
     this._key(0xff8844, 6, 1.2, -2, "key2", "Oranger Schluessel", "II", "cross");
 
+    // ========== LOCKERS ==========
+    // Hiding spots, each against a wall with its door facing into the room.
+    this.lockers = [];
+    this._locker(-9.575, 3.2, Math.PI / 2);   // waiting room, west wall
+    this._locker(9.575, 3.5, -Math.PI / 2);   // storage, east wall
+    this._locker(-9.575, 6.9, Math.PI / 2);   // file room, west wall
+    this._locker(9.575, 6.6, -Math.PI / 2);   // OP room, east wall
+    this._locker(-4.6, -6.575, 0);            // south hall, south wall
+
     // ========== BATTERIES ==========
     // Each one is a detour off the key routes: waiting-room bench, OP table, far corner of the south hall.
     this.batteries = [];
@@ -308,6 +317,40 @@ export class Level {
     key.add(label);
     key.userData = { type: "key", id, name, glyph, prompt: name + " aufheben", collected: false, basePosition: { x, y, z } };
     this.scene.add(key); this.keys.push(key); if (!this.key) this.key = key;
+  }
+
+  // facing: rotation.y so that the door (local +Z) points into the room.
+  _locker(x, z, facing) {
+    const g = new THREE.Group();
+    const steel = new THREE.MeshStandardMaterial({ color: 0x4a5650, roughness: 0.55, metalness: 0.6 });
+    const slit = new THREE.MeshStandardMaterial({ color: 0x050607, roughness: 1 });
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.8, 2.0, 0.55), steel);
+    body.position.y = 1.0;
+    body.castShadow = true; body.receiveShadow = true;
+    g.add(body);
+    for (let i = 0; i < 6; i++) {
+      const v = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.025, 0.01), slit);
+      v.position.set(0, 1.42 + i * 0.06, 0.281);
+      g.add(v);
+    }
+    const seam = new THREE.Mesh(new THREE.BoxGeometry(0.012, 1.9, 0.01), slit);
+    seam.position.set(0.39, 1.0, 0.281);
+    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.16, 0.04), new THREE.MeshStandardMaterial({ color: 0x9a9a92, roughness: 0.3, metalness: 0.9 }));
+    handle.position.set(0.3, 1.05, 0.3);
+    g.add(seam, handle);
+    g.position.set(x, 0, z);
+    g.rotation.y = facing;
+    const out = { x: Math.sin(facing), z: Math.cos(facing) };
+    g.userData = {
+      type: "locker",
+      prompt: "Im Spind verstecken",
+      inside: { x: x + out.x * 0.02, z: z + out.z * 0.02 },
+      front: { x: x + out.x * 0.85, z: z + out.z * 0.85 },
+      facing,
+    };
+    this.scene.add(g);
+    this.walls.push(body);
+    this.lockers.push(g);
   }
 
   _battery(x, y, z) {

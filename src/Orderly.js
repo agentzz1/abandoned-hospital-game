@@ -19,7 +19,7 @@ export class NavGrid {
     const box = new THREE.Box3();
     for (const w of this.level.walls) {
       if (w.userData?.blocksMovement === false || !w.geometry) continue;
-      w.updateMatrixWorld(true);
+      w.updateWorldMatrix(true, false);
       box.setFromObject(w);
       if (!box.isEmpty()) boxes.push(box.clone());
     }
@@ -251,6 +251,8 @@ export class Orderly {
     this.canSeePlayer = false;
     this.onCatch = null;
     this.onHuntStart = null;
+    this.onInspectArrive = null;
+    this.inspectTarget = null;
     this.position = new THREE.Vector3();
     this.heading = 0;
     this.path = null;
@@ -513,6 +515,16 @@ export class Orderly {
     return this.nav.hasLineOfSight(this.position.x, this.position.z, ctx.x, ctx.z);
   }
 
+  // Saw the player slip into a locker: walk up, stand there, rattle it, then give up.
+  inspectLocker(front, inside) {
+    this.state = 'inspect';
+    this.inspectTarget = { front, inside };
+    this.inspectArrived = false;
+    this.waitTimer = 0;
+    this.awareness = 0.6;
+    this.setDestination(front.x, front.z);
+  }
+
   wake() {
     if (this.state !== 'dormant') return;
     this.state = 'patrol';
@@ -594,6 +606,27 @@ export class Orderly {
           }
         }
         break;
+      case 'inspect': {
+        this.speed = SPEED.investigate;
+        const t = this.inspectTarget;
+        if (this.inspectArrived) {
+          this.waitTimer -= dt;
+          this.turnToward(Math.atan2(t.inside.x - this.position.x, t.inside.z - this.position.z), dt, 6);
+          this._headTurn = Math.sin(this._animTime * 0.7) * 0.25;
+          if (this.waitTimer <= 0) {
+            this.state = 'patrol';
+            this.awareness = 0.2;
+            this.lastKnown = null;
+            this.path = null;
+            this.waitTimer = 0.4;
+          }
+        } else if (!this.move(dt)) {
+          this.inspectArrived = true;
+          this.waitTimer = 3.5;
+          this.onInspectArrive?.();
+        }
+        break;
+      }
       case 'hunt':
         this.speed = SPEED.hunt * pity;
         this._headTurn *= 0.8;

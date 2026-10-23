@@ -15,6 +15,8 @@ page.on('pageerror', e => errs.push('PAGEERROR: ' + e.message));
 page.on('console', m => { if (m.type()==='error' && !m.text().includes('ERR_CONNECTION')) errs.push('CONSOLE: '+m.text()); });
 await page.goto(process.env.GAME_URL || 'http://localhost:5180', { waitUntil: 'load' });
 await sleep(3500);
+// This walkthrough checks the level is completable, so the Orderly stays off unless ORDERLY=on.
+if (process.env.ORDERLY !== 'on') await page.evaluate(() => { window.game.gameState.settings.orderlyEnabled = false; });
 
 const S = () => page.evaluate(() => JSON.parse(window.render_game_to_text()));
 console.log('START:', JSON.stringify(await S()));

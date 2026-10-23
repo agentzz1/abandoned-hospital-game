@@ -161,6 +161,15 @@ const nav = new NavGrid(level);
 const orderly = new Orderly(scene, nav);
 orderly.onCatch = catchPlayer;
 orderly.onHuntStart = () => audioManager.playSpottedStinger?.();
+orderly.onInspectArrive = () => audioManager.playLockerRattle?.();
+interaction.onHide = (locker) => {
+  if (!orderlyEnabled() || orderly.state === "dormant" || orderly.immuneTime > 0) return;
+  const d = locker.userData;
+  const dist = Math.hypot(orderly.position.x - d.inside.x, orderly.position.z - d.inside.z);
+  const watched = orderly.canSeePlayer || (orderly.state === "hunt" && dist < 8)
+    || (dist < 6 && nav.hasLineOfSight(orderly.position.x, orderly.position.z, d.front.x, d.front.z));
+  if (watched) orderly.inspectLocker(d.front, d.inside);
+};
 
 const SPAWN = { x: 0, z: 0 };
 const ORDERLY_TICK = 0.1;
@@ -803,6 +812,7 @@ window.render_game_to_text = () => {
     jumpscareCount: gameState.jumpscareCount,
     battery: Math.round(gameState.battery), flashlightOn: gameState.flashlightOn, stamina: Math.round(player.stamina * 100) / 100,
     orderly: { x: r(orderly.position.x), z: r(orderly.position.z), state: orderly.state, awareness: r(orderly.awareness), catches: gameState.catches },
+    hidden: player.hidden,
     batteriesLeft: level.batteries ? level.batteries.filter(b => !b.userData.collected).length : 0,
     player: { x: r(camera.position.x), y: r(camera.position.y), z: r(camera.position.z), yaw: r(player.euler.y), pitch: r(player.euler.x) },
     keys: level.keys ? level.keys.map(k => ({ id: k.userData.id, name: k.userData.name, collected: k.userData.collected, x: r(k.position.x), z: r(k.position.z) })) : [],

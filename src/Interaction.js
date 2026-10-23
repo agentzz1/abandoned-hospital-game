@@ -53,6 +53,14 @@ export class Interaction {
       this._rebuildInteractables();
     }
 
+    if (this.player.hidden) {
+      if (this.ui.prompt) {
+        this.ui.prompt.style.display = 'block';
+        this.ui.prompt.textContent = 'E - Spind verlassen';
+      }
+      return;
+    }
+
     this.raycaster.setFromCamera(this.center, this.camera);
     const intersects = this.raycaster.intersectObjects(this.interactables, true);
 
@@ -103,6 +111,28 @@ export class Interaction {
     }
   }
 
+  enterLocker(locker) {
+    const d = locker.userData;
+    this.player.enterHiding(d.inside, d.facing);
+    this.gameState.hiddenIn = locker;
+    this.audioManager.playLockerDoor?.();
+    this.currentInteractable = null;
+    document.getElementById('hide-overlay')?.removeAttribute('hidden');
+    this.onHide?.(locker);
+    this.refreshUi();
+  }
+
+  leaveLocker() {
+    const locker = this.gameState.hiddenIn;
+    if (!locker) return;
+    this.player.leaveHiding(locker.userData.front, locker.userData.facing);
+    this.gameState.hiddenIn = null;
+    this.audioManager.playLockerDoor?.();
+    document.getElementById('hide-overlay')?.setAttribute('hidden', '');
+    if (this.ui.prompt) this.ui.prompt.style.display = 'none';
+    this.refreshUi();
+  }
+
   _collectBattery(battery) {
     if (!this.level.collectBattery(battery)) return;
     this.gameState.battery = Math.min(100, (this.gameState.battery ?? 0) + BATTERY_CHARGE);
@@ -126,15 +156,21 @@ export class Interaction {
     dir.divideScalar(dist);
     this._losRay.set(from, dir);
     this._losRay.far = dist;
+    // The target's own parts (a locker's body is also a wall) must not block it.
     const blockers = this.level.walls
-      ? this.level.walls.filter(w => w.userData?.blocksMovement !== false && w !== target)
+      ? this.level.walls.filter(w => w.userData?.blocksMovement !== false && w !== target && w.parent !== target)
       : [];
     const hits = this._losRay.intersectObjects(blockers, true);
     return hits.length === 0;
   }
 
   interact() {
-    if (this.gameState.mode !== 'playing' || !this.currentInteractable) return;
+    if (this.gameState.mode !== 'playing') return;
+    if (this.player.hidden) {
+      this.leaveLocker();
+      return;
+    }
+    if (!this.currentInteractable) return;
 
     const data = this.currentInteractable.userData;
 
@@ -150,6 +186,11 @@ export class Interaction {
 
     if (data.type === 'battery') {
       this._collectBattery(this.currentInteractable);
+      return;
+    }
+
+    if (data.type === 'locker') {
+      this.enterLocker(this.currentInteractable);
       return;
     }
 
