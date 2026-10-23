@@ -124,11 +124,15 @@ scene.fog = new THREE.FogExp2(0x0a0c10, 0.018);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance", stencil: false, depth: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance", stencil: false, depth: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = THREE.PCFShadowMap;
+// The only shadow caster is the static moonlight, so the shadow map is rendered
+// once and refreshed only when level geometry moves (see level.shadowsDirty).
+renderer.shadowMap.autoUpdate = false;
+renderer.shadowMap.needsUpdate = true;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.2;
 if ("outputColorSpace" in renderer) {
@@ -493,6 +497,7 @@ function stepSimulation(deltaSeconds) {
 }
 
 function renderFrame(deltaSeconds = 1 / 60) {
+  if (level.shadowsDirty) { renderer.shadowMap.needsUpdate = true; level.shadowsDirty = false; }
   postFX.render(deltaSeconds);
 }
 

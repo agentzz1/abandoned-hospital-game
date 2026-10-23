@@ -150,8 +150,8 @@ export class Level {
     const sunLight = new THREE.DirectionalLight(0x8899cc, 1.2);
     sunLight.position.set(-5, 8, 12);
     sunLight.castShadow = true;
-    sunLight.shadow.mapSize.width = 2048;
-    sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.mapSize.width = 1024;
+    sunLight.shadow.mapSize.height = 1024;
     sunLight.shadow.camera.near = 0.5;
     sunLight.shadow.camera.far = 30;
     sunLight.shadow.camera.left = -15;
@@ -164,13 +164,13 @@ export class Level {
     this.sunLight = sunLight;
 
     // Interior point lights - realistic warm tones
-    this._light(0, 2.7, 0, 0xffeedd, 4.0, 18, 0, true);
-    this._light(0, 2.7, 10, 0xffeedd, 4.0, 18, 0.5, true);
-    this._light(-6.5, 2.6, 0, 0xffddaa, 2.5, 12, 1, false);
-    this._light(6.5, 2.6, 0, 0xddccaa, 2.0, 12, 1.5, false);
-    this._light(-6.5, 2.6, 8.5, 0xeeddcc, 2.5, 12, 2, false);
-    this._light(6.5, 2.6, 8.5, 0xbbddee, 3.0, 14, 2.5, false);
-    this._light(0, 2.7, 14, 0xaaffcc, 3.0, 12, 0.8, false);
+    this._light(0, 2.7, 0, 0xffeedd, 4.0, 18, 0);
+    this._light(0, 2.7, 10, 0xffeedd, 4.0, 18, 0.5);
+    this._light(-6.5, 2.6, 0, 0xffddaa, 2.5, 12, 1);
+    this._light(6.5, 2.6, 0, 0xddccaa, 2.0, 12, 1.5);
+    this._light(-6.5, 2.6, 8.5, 0xeeddcc, 2.5, 12, 2);
+    this._light(6.5, 2.6, 8.5, 0xbbddee, 3.0, 14, 2.5);
+    this._light(0, 2.7, 14, 0xaaffcc, 3.0, 12, 0.8);
 
     // Lamps
     this._lamp(0, 2.95, 0);
@@ -325,9 +325,9 @@ export class Level {
     return sprite;
   }
 
-  _light(x, y, z, color, intensity, distance, seed, shadow) {
+  _light(x, y, z, color, intensity, distance, seed) {
+    // Point-light shadows render the scene six times each per frame; the moonlight carries the shadows.
     const l = new THREE.PointLight(color, intensity, distance); l.position.set(x, y, z);
-    if (shadow) { l.castShadow = true; l.shadow.mapSize.width = 512; l.shadow.mapSize.height = 512; l.shadow.bias = -0.001; }
     this.scene.add(l); this.lights.push({ light: l, baseIntensity: intensity, seed });
   }
 
@@ -357,11 +357,6 @@ export class Level {
     this.scene.add(cone);
     this.volumetricMeshes.push(cone);
 
-    // Add a point light at the ray source for extra glow
-    const glowLight = new THREE.PointLight(color, 0.5, 5);
-    glowLight.position.set(x, y - 0.3, z);
-    this.scene.add(glowLight);
-    this.lights.push({ light: glowLight, baseIntensity: 0.5, seed: Math.random() * 100 });
   }
 
   _dust() {
@@ -419,6 +414,7 @@ export class Level {
     d.isOpen = true; d.blocksMovement = false;
     this.exitDoor.position.set(d.openPosition.x, d.openPosition.y, d.openPosition.z);
     this.exitDoor.rotation.y = Math.PI/2;
+    this.shadowsDirty = true;
     d.prompt = "Ausgang offen";
     if (this.exitDoor.material.emissive) this.exitDoor.material.emissive.setHex(0x23301d);
     return true;
@@ -457,6 +453,7 @@ export class Level {
       d.prompt = "Ausgang verschlossen";
       this.exitDoor.position.set(d.closedPosition.x, d.closedPosition.y, d.closedPosition.z);
       this.exitDoor.rotation.y = 0;
+      this.shadowsDirty = true;
       if (this.exitDoor.material.emissive) this.exitDoor.material.emissive.setHex(0);
     }
     if (this.exitLight) {
