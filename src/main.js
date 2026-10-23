@@ -4,6 +4,7 @@ import { Level } from './Level.js';
 import { Interaction } from './Interaction.js';
 import { AudioManager } from './Audio.js';
 import { PostFX } from './PostFX.js';
+import { NavGrid, Orderly } from './Orderly.js';
 
 const ui = {
   instructions: document.getElementById("instructions"),
@@ -155,6 +156,8 @@ audioManager.setVolume(gameState.settings.volume);
 const level = new Level(scene);
 const player = new Player(camera, document.body, scene, level.walls, audioManager, ui, gameState);
 const interaction = new Interaction(camera, scene, player, audioManager, level, gameState, ui, refreshUi);
+const nav = new NavGrid(level);
+const orderly = new Orderly(scene, nav);
 
 // Flashlight - realistic warm white
 const flashlight = new THREE.SpotLight(0xfff5e0, 18.0, 30, Math.PI / 5, 0.4, 1.5);
@@ -530,6 +533,9 @@ function stepSimulation(deltaSeconds) {
 
     updateFlashlight(deltaSeconds);
 
+    if (level.navDirty) { nav.build(); level.navDirty = false; }
+    orderly.update(deltaSeconds, camera.position);
+
     // Random jumpscares
     gameState.jumpscareTimer -= deltaSeconds;
     if (gameState.jumpscareTimer <= 0) {
@@ -698,7 +704,7 @@ window.sim = {
   }
 };
 
-window.game = { scene, camera, renderer, player, level, interaction, gameState, audioManager };
+window.game = { scene, camera, renderer, player, level, interaction, gameState, audioManager, nav, orderly };
 
 window.render_game_to_text = () => {
   const r = v => Math.round(v * 1000) / 1000;
@@ -709,6 +715,7 @@ window.render_game_to_text = () => {
     elapsed: gameState.elapsed, notesRead: gameState.notesRead,
     jumpscareCount: gameState.jumpscareCount,
     battery: Math.round(gameState.battery), flashlightOn: gameState.flashlightOn, stamina: Math.round(player.stamina * 100) / 100,
+    orderly: { x: r(orderly.position.x), z: r(orderly.position.z), state: orderly.state },
     batteriesLeft: level.batteries ? level.batteries.filter(b => !b.userData.collected).length : 0,
     player: { x: r(camera.position.x), y: r(camera.position.y), z: r(camera.position.z), yaw: r(player.euler.y), pitch: r(player.euler.x) },
     keys: level.keys ? level.keys.map(k => ({ id: k.userData.id, name: k.userData.name, collected: k.userData.collected, x: r(k.position.x), z: r(k.position.z) })) : [],

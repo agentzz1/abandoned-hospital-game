@@ -446,6 +446,7 @@ export class Level {
     this.exitDoor.position.set(d.openPosition.x, d.openPosition.y, d.openPosition.z);
     this.exitDoor.rotation.y = Math.PI/2;
     this.shadowsDirty = true;
+    this.navDirty = true;
     d.prompt = "Ausgang offen";
     if (this.exitDoor.material.emissive) this.exitDoor.material.emissive.setHex(0x23301d);
     return true;
@@ -485,6 +486,7 @@ export class Level {
       this.exitDoor.position.set(d.closedPosition.x, d.closedPosition.y, d.closedPosition.z);
       this.exitDoor.rotation.y = 0;
       this.shadowsDirty = true;
+      this.navDirty = true;
       if (this.exitDoor.material.emissive) this.exitDoor.material.emissive.setHex(0);
     }
     if (this.exitLight) {
