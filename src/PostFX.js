@@ -43,7 +43,7 @@ const ChromaticAberrationShader = {
 };
 
 export class PostFX {
-  constructor(renderer, scene, camera, width, height) {
+  constructor(renderer, scene, camera, width, height, { maxPixelRatio = 1.5, startPixelRatio } = {}) {
     this.renderer = renderer;
     this.composer = new EffectComposer(renderer);
     this.composer.setSize(width, height);
@@ -72,8 +72,8 @@ export class PostFX {
 
     // Adaptive resolution: when frames get slow, render fewer pixels instead of
     // dropping the look. Steps back up when there is headroom again.
-    this.maxPixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
-    this.pixelRatio = this.maxPixelRatio;
+    this.maxPixelRatio = Math.min(window.devicePixelRatio || 1, maxPixelRatio);
+    this.pixelRatio = Math.min(this.maxPixelRatio, startPixelRatio ?? this.maxPixelRatio);
     this.minPixelRatio = 0.5;
     this._frameSamples = 0;
     this._frameTimeSum = 0;

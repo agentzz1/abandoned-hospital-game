@@ -17,6 +17,8 @@ export class Player {
     this.isMoving = false;
     this.sprintingNow = false;
     this.hidden = false;
+    // Analog movement from the touch joystick: x = right, y = forward, each -1..1.
+    this.analog = { x: 0, y: 0 };
     this.sensitivity = 0.002;
     this.locked = false;
 
@@ -162,6 +164,7 @@ export class Player {
     this.lookLeft = this.lookRight = this.lookUp = this.lookDown = false;
     this.isSprinting = false;
     this.isCrouched = false;
+    this.analog.x = this.analog.y = 0;
   }
 
   _bindKeys() {
@@ -194,6 +197,7 @@ export class Player {
       try { (canvas || document.body).requestPointerLock()?.catch?.(() => {}); } catch { /* unsupported */ }
     };
     document.addEventListener('click', e => {
+      if (document.body.classList.contains('touch')) return;
       if (e.target.closest('#note-overlay, #win-overlay, #pause-overlay, #settings-overlay, #intro-overlay, button')) return;
       lock();
     });
@@ -202,15 +206,21 @@ export class Player {
       if (hint) hint.style.display = this.locked ? 'none' : 'block';
     });
     document.addEventListener('mousemove', e => {
-      if (!this.locked || !this._canControl()) return;
-      const settings = this.gameState.settings || {};
-      const sensMul = settings.mouseSensitivity ?? 1.0;
-      const invertY = settings.invertY ? -1 : 1;
-      this.yaw -= e.movementX * this.sensitivity * sensMul;
-      this.pitch -= e.movementY * this.sensitivity * sensMul * invertY;
-      this.pitch = Math.max(-1.5, Math.min(1.5, this.pitch));
-      this._setCamRot();
+      if (!this.locked) return;
+      this.applyLookDelta(e.movementX * this.sensitivity, e.movementY * this.sensitivity);
     });
+  }
+
+  // Turns the view by a raw delta in radians (mouse or touch drag), applying the player's settings.
+  applyLookDelta(dYaw, dPitch) {
+    if (!this._canControl()) return;
+    const settings = this.gameState.settings || {};
+    const sensMul = settings.mouseSensitivity ?? 1.0;
+    const invertY = settings.invertY ? -1 : 1;
+    this.yaw -= dYaw * sensMul;
+    this.pitch -= dPitch * sensMul * invertY;
+    this.pitch = Math.max(-1.5, Math.min(1.5, this.pitch));
+    this._setCamRot();
   }
 
   _collides(px, pz) {
@@ -279,6 +289,15 @@ export class Player {
     if (this.moveRight)    { mx += rightX; mz += rightZ; }
     if (this.moveLeft)     { mx -= rightX; mz -= rightZ; }
 
+    // A half-pushed stick walks slower than a full push.
+    let analogScale = 1;
+    const stick = Math.hypot(this.analog.x, this.analog.y);
+    if (stick > 0.15) {
+      mx += fwdX * this.analog.y + rightX * this.analog.x;
+      mz += fwdZ * this.analog.y + rightZ * this.analog.x;
+      analogScale = Math.min(1, 0.35 + stick * 0.75);
+    }
+
     const len = Math.sqrt(mx * mx + mz * mz);
     this.isMoving = len > 0.001;
 
@@ -297,8 +316,8 @@ export class Player {
     else if (this.sprintingNow) spd *= this.sprintMultiplier;
 
     if (len > 0.001) {
-      mx = (mx / len) * spd * dt;
-      mz = (mz / len) * spd * dt;
+      mx = (mx / len) * spd * analogScale * dt;
+      mz = (mz / len) * spd * analogScale * dt;
     }
 
     // Try X and Z separately for wall sliding

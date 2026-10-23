@@ -22,6 +22,8 @@ export class Interaction {
     this._losRay = new THREE.Raycaster();
     this.center = new THREE.Vector2(0, 0);
     this.currentInteractable = null;
+    // Keyboard players see "E - ..."; on touch screens the Use button is the prompt.
+    this.promptPrefix = 'E - ';
     this.interactables = [];
     this._needsRefresh = true;
   }
@@ -56,7 +58,7 @@ export class Interaction {
     if (this.player.hidden) {
       if (this.ui.prompt) {
         this.ui.prompt.style.display = 'block';
-        this.ui.prompt.textContent = 'E - Spind verlassen';
+        this.ui.prompt.textContent = `${this.promptPrefix}Spind verlassen`;
       }
       return;
     }
@@ -77,7 +79,7 @@ export class Interaction {
         this.currentInteractable = hovered;
         if (this.ui.prompt) this.ui.prompt.style.display = 'block';
       }
-      if (this.ui.prompt) this.ui.prompt.textContent = `E - ${hovered.userData.prompt}`;
+      if (this.ui.prompt) this.ui.prompt.textContent = `${this.promptPrefix}${hovered.userData.prompt}`;
     } else if (this.currentInteractable) {
       this.currentInteractable = null;
       if (this.ui.prompt) this.ui.prompt.style.display = 'none';
@@ -332,7 +334,7 @@ export class Interaction {
 
     this.player?.refreshColliders?.();
     this.audioManager.playDoorCreek();
-    if (this.ui.prompt) this.ui.prompt.textContent = `E - ${data.prompt}`;
+    if (this.ui.prompt) this.ui.prompt.textContent = `${this.promptPrefix}${data.prompt}`;
     this.refreshUi();
   }
 
