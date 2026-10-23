@@ -107,6 +107,13 @@ export class Level {
     this._key(0x44aaff, -6, 1.2, 9, "key1", "Bluer Schluessel", "I", "ring");
     this._key(0xff8844, 6, 1.2, -2, "key2", "Oranger Schluessel", "II", "cross");
 
+    // ========== BATTERIES ==========
+    // Each one is a detour off the key routes: waiting-room bench, OP table, far corner of the south hall.
+    this.batteries = [];
+    this._battery(-7, 0.86, -1);
+    this._battery(7, 0.96, 8.5);
+    this._battery(8.6, 0.06, -6.3);
+
     // ========== NOTE ==========
     const note = new THREE.Mesh(
       new THREE.PlaneGeometry(0.25, 0.35),
@@ -301,6 +308,30 @@ export class Level {
     key.add(label);
     key.userData = { type: "key", id, name, glyph, prompt: name + " aufheben", collected: false, basePosition: { x, y, z } };
     this.scene.add(key); this.keys.push(key); if (!this.key) this.key = key;
+  }
+
+  _battery(x, y, z) {
+    const g = new THREE.Group();
+    const shell = new THREE.MeshStandardMaterial({ color: 0x23272d, roughness: 0.45, metalness: 0.7 });
+    const band = new THREE.MeshStandardMaterial({ color: 0xffc23a, emissive: 0xffb020, emissiveIntensity: 1.1, roughness: 0.4 });
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.2, 14), shell);
+    const label = new THREE.Mesh(new THREE.CylinderGeometry(0.057, 0.057, 0.08, 14), band);
+    const nub = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.025, 10), shell);
+    nub.position.y = 0.112;
+    g.add(body, label, nub);
+    g.rotation.z = Math.PI / 2;
+    g.rotation.y = 0.6;
+    g.position.set(x, y, z);
+    g.userData = { type: "battery", prompt: "Batterie aufheben", collected: false };
+    this.scene.add(g);
+    this.batteries.push(g);
+  }
+
+  collectBattery(battery) {
+    if (!battery || battery.userData.collected) return false;
+    battery.userData.collected = true;
+    battery.visible = false;
+    return true;
   }
 
   _glyphSprite(glyph) {

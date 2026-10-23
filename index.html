@@ -48,6 +48,20 @@
       .key-icon { font-size:20px; }
       .key-glyph { position:absolute; bottom:-2px; right:-2px; min-width:15px; height:15px; padding:0 2px; border-radius:5px; background:rgba(10,8,14,0.9); border:1px solid rgba(255,255,255,0.4); font-size:9px; font-weight:700; line-height:15px; text-align:center; color:#fff; font-family:"JetBrains Mono",monospace; }
 
+      /* Vitals: flashlight charge + breath */
+      #vitals { position:absolute; left:20px; bottom:20px; display:grid; gap:8px; width:200px; padding:12px 14px; border:1px solid var(--border); border-radius:14px; background:rgba(8,10,14,0.7); backdrop-filter:blur(8px); }
+      .vital { display:grid; grid-template-columns:44px 1fr 36px; align-items:center; gap:8px; font-size:10px; font-weight:600; letter-spacing:0.14em; text-transform:uppercase; color:var(--muted); }
+      .vital-bar { height:6px; border-radius:3px; background:rgba(255,255,255,0.07); overflow:hidden; }
+      .vital-fill { height:100%; width:100%; border-radius:3px; transition:width 0.25s linear, background 0.3s; }
+      #battery-fill { background:#f2c14e; box-shadow:0 0 8px rgba(242,193,78,0.5); }
+      #stamina-fill { background:#9fb4d0; }
+      #battery-pct { font-family:"JetBrains Mono",monospace; letter-spacing:0; text-align:right; color:var(--text); }
+      #vital-battery.off #battery-fill { background:#5d5440; box-shadow:none; }
+      #vital-battery.off #battery-pct { color:var(--muted); }
+      #vital-battery.low #battery-fill { background:#e0623c; box-shadow:0 0 8px rgba(224,98,60,0.6); animation:lowPulse 0.9s ease-in-out infinite; }
+      #vital-stamina.exhausted #stamina-fill { background:#7a5560; }
+      @keyframes lowPulse { 50% { opacity:0.45; } }
+
       /* Timer */
       #timer { position:absolute; top:74px; right:20px; padding:8px 14px; border:1px solid var(--border); border-radius:10px; background:rgba(10,12,16,0.6); backdrop-filter:blur(8px); font-family:"JetBrains Mono",monospace; font-size:14px; color:var(--muted); }
 
@@ -150,6 +164,7 @@
         #hud { width:calc(100vw - 24px); left:12px; top:12px; }
         #key-indicator { top:12px; right:12px; }
         #timer { top:64px; right:12px; }
+        #vitals { left:12px; bottom:12px; width:170px; }
         #note-card, #win-card, #intro-card { width:calc(100vw - 24px); padding:24px; }
       }
     </style>
@@ -178,6 +193,11 @@
 
       <div id="timer">00:00</div>
 
+      <div id="vitals">
+        <div class="vital" id="vital-battery"><span>Lampe</span><div class="vital-bar"><div class="vital-fill" id="battery-fill"></div></div><span id="battery-pct">100%</span></div>
+        <div class="vital" id="vital-stamina"><span>Atem</span><div class="vital-bar"><div class="vital-fill" id="stamina-fill"></div></div><span></span></div>
+      </div>
+
       <div id="compass">
         <div id="compass-arrow">▲</div>
         <div id="compass-label">Ziel</div>
@@ -202,6 +222,7 @@
             <div class="key-hint"><strong>Maus / Pfeiltasten</strong> schauen</div>
             <div class="key-hint"><strong>Shift</strong> rennen</div>
             <div class="key-hint"><strong>C</strong> ducken</div>
+            <div class="key-hint"><strong>F</strong> Taschenlampe</div>
             <div class="key-hint"><strong>E</strong> interagieren</div>
             <div class="key-hint"><strong>M</strong> Sound aus</div>
           </div>
@@ -229,7 +250,9 @@
               <li><span>Umsehen</span><strong>Maus</strong></li>
               <li><span>Rennen</span><strong>Shift</strong></li>
               <li><span>Ducken</span><strong>Strg / C</strong></li>
+              <li><span>Taschenlampe</span><strong>F</strong></li>
               <li><span>Interagieren</span><strong>E</strong></li>
+              <li><span>Vollbild</span><strong>O</strong></li>
               <li><span>Pause</span><strong>Esc</strong></li>
             </ul>
           </div>

@@ -9,7 +9,14 @@ export class Player {
     this.ui = ui;
     this.gameState = gameState;
 
-    this.speed = 5;
+    // Horror pacing: walking is deliberate, sprinting is short and loud.
+    this.speed = 3.4;
+    this.sprintMultiplier = 1.55;
+    this.stamina = 1;
+    this.exhausted = false;
+    this.isMoving = false;
+    this.sprintingNow = false;
+    this.hidden = false;
     this.sensitivity = 0.002;
     this.locked = false;
 
@@ -100,6 +107,14 @@ export class Player {
       set y(v) { self.yaw = v; self._setCamRot(); },
       get _y() { return self.yaw; },
     };
+  }
+
+  // How far (metres) the player can currently be heard. Read by the Orderly.
+  get noiseRadius() {
+    if (this.hidden || !this.isMoving) return 0;
+    if (this.isCrouched) return 1.2;
+    if (this.sprintingNow) return 11;
+    return 5;
   }
 
   get velocity() {
@@ -195,6 +210,8 @@ export class Player {
 
   update(dt) {
     if (!this._canControl()) {
+      this.isMoving = false;
+      this.sprintingNow = false;
       // Keep the eye height settled while an overlay is open.
       this.camera.position.y += (this.eyeHeight - this.camera.position.y) * 8 * dt;
       this._setCamRot();
@@ -221,10 +238,6 @@ export class Player {
     const targetHeight = this.isCrouched ? this.crouchHeight : this.standHeight;
     this.eyeHeight += (targetHeight - this.eyeHeight) * Math.min(1, 10 * dt);
 
-    let spd = this.speed;
-    if (this.isCrouched) spd *= 0.5;
-    else if (this.isSprinting) spd *= 1.6;
-
     let mx = 0, mz = 0;
     if (this.moveForward)  { mx += fwdX;   mz += fwdZ; }
     if (this.moveBackward) { mx -= fwdX;   mz -= fwdZ; }
@@ -232,6 +245,22 @@ export class Player {
     if (this.moveLeft)     { mx -= rightX; mz -= rightZ; }
 
     const len = Math.sqrt(mx * mx + mz * mz);
+    this.isMoving = len > 0.001;
+
+    // Stamina: about 4.5s of sprint, and once empty you have to recover a bit before sprinting again.
+    this.sprintingNow = this.isSprinting && !this.isCrouched && !this.exhausted && this.isMoving;
+    if (this.sprintingNow) {
+      this.stamina = Math.max(0, this.stamina - 0.22 * dt);
+      if (this.stamina === 0) this.exhausted = true;
+    } else {
+      this.stamina = Math.min(1, this.stamina + (this.isMoving ? 0.12 : 0.2) * dt);
+      if (this.exhausted && this.stamina > 0.35) this.exhausted = false;
+    }
+
+    let spd = this.speed;
+    if (this.isCrouched) spd *= 0.5;
+    else if (this.sprintingNow) spd *= this.sprintMultiplier;
+
     if (len > 0.001) {
       mx = (mx / len) * spd * dt;
       mz = (mz / len) * spd * dt;
@@ -258,9 +287,9 @@ export class Player {
       this._bobTimer += dt * 9 * rate;
       this.camera.position.y = this.eyeHeight + Math.abs(Math.sin(this._bobTimer)) * 0.035 * rate;
       this._footstepTimer += dt;
-      const interval = this.isCrouched ? 0.85 : this.isSprinting ? 0.32 : 0.5;
+      const interval = this.isCrouched ? 0.85 : this.sprintingNow ? 0.34 : 0.55;
       if (this._footstepTimer > interval) {
-        this.audioManager?.playFootstep(this.isSprinting);
+        this.audioManager?.playFootstep(this.sprintingNow);
         this._footstepTimer = 0;
       }
     } else {
@@ -282,6 +311,8 @@ export class Player {
 
   reset() {
     this.clearInput();
+    this.stamina = 1;
+    this.exhausted = false;
     this.yaw = 0;
     this.pitch = 0;
     this._bobTimer = 0;

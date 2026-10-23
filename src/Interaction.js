@@ -2,6 +2,9 @@ import * as THREE from 'three';
 
 // How close the player has to get before a key is picked up automatically.
 const PICKUP_RADIUS = 1.8;
+// Measured on the floor plane: batteries sit on tables and benches well below eye height.
+const BATTERY_PICKUP_RADIUS = 1.8;
+const BATTERY_CHARGE = 45;
 
 const _tmpDir = new THREE.Vector3();
 
@@ -87,6 +90,30 @@ export class Interaction {
         this._collectKey(key.userData.id);
       }
     }
+
+    if (this.level.batteries) {
+      const p = this.camera.position;
+      for (const b of this.level.batteries) {
+        if (b.userData.collected) continue;
+        const dx = p.x - b.position.x, dz = p.z - b.position.z;
+        if (dx * dx + dz * dz > BATTERY_PICKUP_RADIUS * BATTERY_PICKUP_RADIUS) continue;
+        if (!this._hasLineOfSight(b)) continue;
+        this._collectBattery(b);
+      }
+    }
+  }
+
+  _collectBattery(battery) {
+    if (!this.level.collectBattery(battery)) return;
+    this.gameState.battery = Math.min(100, (this.gameState.battery ?? 0) + BATTERY_CHARGE);
+    this.audioManager.playPickup();
+    this._needsRefresh = true;
+    if (this.currentInteractable === battery) {
+      this.currentInteractable = null;
+      if (this.ui.prompt) this.ui.prompt.style.display = 'none';
+    }
+    if (window.showNotification) window.showNotification(`Batterie +${BATTERY_CHARGE}%`);
+    this.refreshUi();
   }
 
   // True when no wall sits between the camera and the target object.
@@ -118,6 +145,11 @@ export class Interaction {
 
     if (data.type === 'key') {
       this._collectKey(data.id);
+      return;
+    }
+
+    if (data.type === 'battery') {
+      this._collectBattery(this.currentInteractable);
       return;
     }
 

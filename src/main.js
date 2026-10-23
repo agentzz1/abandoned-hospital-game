@@ -28,6 +28,11 @@ const ui = {
   invertYCheckbox: document.getElementById("invert-y-checkbox"),
   objPipBlue: document.getElementById("obj-pip-blue"),
   objPipOrange: document.getElementById("obj-pip-orange"),
+  batteryFill: document.getElementById("battery-fill"),
+  batteryPct: document.getElementById("battery-pct"),
+  batteryVital: document.getElementById("vital-battery"),
+  staminaFill: document.getElementById("stamina-fill"),
+  staminaVital: document.getElementById("vital-stamina"),
 };
 
 // Supports a dotted path (e.g. "style.display"), not just a direct property.
@@ -111,6 +116,8 @@ const gameState = {
   notesRead: 0,
   jumpscareTimer: 15,
   jumpscareCount: 0,
+  battery: 100,
+  flashlightOn: true,
   settings: loadSettings(),
 };
 
@@ -162,6 +169,10 @@ camera.add(fillLight);
 
 let flashlightFlickerTimer = 0;
 let flashlightBaseIntensity = 18.0;
+// About 110s of light per full charge; each battery pickup adds 45%.
+const FLASHLIGHT_DRAIN_PER_SEC = 0.9;
+const FILL_LIGHT_ON = 1.5;
+const FILL_LIGHT_OFF = 0.25;
 let lastFrameTime = performance.now();
 let simulationTime = 0;
 let presenceTimer = 45 + Math.random() * 45;
@@ -219,6 +230,8 @@ ui.invertYCheckbox?.addEventListener("change", () => {
   saveSettings();
 });
 
+let lastBatteryShown = -1;
+let lastStaminaShown = -1;
 let lastPipBlueCollected = null;
 let lastPipOrangeCollected = null;
 let lastObjectivePipsText = null;
@@ -234,7 +247,8 @@ function onWindowResize() {
 }
 
 function onGlobalKeyDown(event) {
-  if (event.code === "KeyF") { event.preventDefault(); toggleFullscreen(); return; }
+  if (event.code === "KeyF") { event.preventDefault(); if (!event.repeat) toggleFlashlight(); return; }
+  if (event.code === "KeyO") { event.preventDefault(); toggleFullscreen(); return; }
   if (event.code === "KeyM") {
     event.preventDefault();
     const muted = audioManager.toggleMute();
@@ -254,6 +268,57 @@ function onGlobalKeyDown(event) {
     if (gameState.mode === "playing") { event.preventDefault(); interaction.interact(); return; }
   }
   if (event.code === "KeyR" && gameState.win) { event.preventDefault(); restartGame(); }
+}
+
+function toggleFlashlight() {
+  if (gameState.mode !== "playing") return;
+  if (!gameState.flashlightOn && gameState.battery <= 0) {
+    showNotification("Batterie leer");
+    return;
+  }
+  gameState.flashlightOn = !gameState.flashlightOn;
+  audioManager.playFlashlightClick?.();
+  refreshUi();
+}
+
+function updateFlashlight(dt) {
+  if (gameState.flashlightOn) {
+    gameState.battery = Math.max(0, gameState.battery - FLASHLIGHT_DRAIN_PER_SEC * dt);
+    if (gameState.battery === 0) {
+      gameState.flashlightOn = false;
+      audioManager.playFlashlightClick?.();
+      showNotification("Batterie leer");
+    }
+  }
+
+  // A weak battery dims the beam and makes it stutter more often.
+  const low = gameState.battery < 15;
+  flashlightFlickerTimer -= dt;
+  if (flashlightFlickerTimer <= 0) flashlightFlickerTimer = low ? 0.5 + Math.random() * 1.5 : 3 + Math.random() * 8;
+  const charge = 0.55 + 0.45 * Math.min(1, gameState.battery / 30);
+  const base = flashlightBaseIntensity * charge;
+  const lit = flashlightFlickerTimer < (low ? 0.2 : 0.12)
+    ? base * (0.25 + Math.random() * 0.35)
+    : base + Math.sin(simulationTime * 2.5) * 0.4;
+  flashlight.intensity = gameState.flashlightOn ? lit : 0;
+  fillLight.intensity = gameState.flashlightOn ? FILL_LIGHT_ON : FILL_LIGHT_OFF;
+}
+
+function updateVitals() {
+  const pct = Math.ceil(gameState.battery);
+  if (pct !== lastBatteryShown) {
+    lastBatteryShown = pct;
+    uiSet(ui.batteryFill, 'style.width', pct + '%');
+    uiSet(ui.batteryPct, 'textContent', pct + '%');
+    ui.batteryVital?.classList.toggle('low', pct < 20);
+  }
+  ui.batteryVital?.classList.toggle('off', !gameState.flashlightOn);
+  const st = Math.round(player.stamina * 100);
+  if (st !== lastStaminaShown) {
+    lastStaminaShown = st;
+    uiSet(ui.staminaFill, 'style.width', st + '%');
+  }
+  ui.staminaVital?.classList.toggle('exhausted', player.exhausted);
 }
 
 function toggleFullscreen() {
@@ -345,6 +410,7 @@ window.updateWinStats = updateWinStats;
 
 function refreshUi() {
   updateObjectivePips();
+  updateVitals();
   uiSet(ui.statusText, 'textContent', describeStatus());
   uiSet(ui.winMessage, 'textContent', gameState.message);
   window._gameElapsed = gameState.elapsed;
@@ -462,12 +528,7 @@ function stepSimulation(deltaSeconds) {
     player.update(deltaSeconds);
     interaction.update();
 
-    // Flashlight flicker
-    flashlightFlickerTimer -= deltaSeconds;
-    if (flashlightFlickerTimer <= 0) flashlightFlickerTimer = 3 + Math.random() * 8;
-    flashlight.intensity = flashlightFlickerTimer < 0.12
-      ? flashlightBaseIntensity * (0.4 + Math.random() * 0.3)
-      : flashlightBaseIntensity + Math.sin(simulationTime * 2.5) * 0.4;
+    updateFlashlight(deltaSeconds);
 
     // Random jumpscares
     gameState.jumpscareTimer -= deltaSeconds;
@@ -647,6 +708,8 @@ window.render_game_to_text = () => {
     exitUnlocked: gameState.exitUnlocked, exitOpen: gameState.exitOpen, win: gameState.win,
     elapsed: gameState.elapsed, notesRead: gameState.notesRead,
     jumpscareCount: gameState.jumpscareCount,
+    battery: Math.round(gameState.battery), flashlightOn: gameState.flashlightOn, stamina: Math.round(player.stamina * 100) / 100,
+    batteriesLeft: level.batteries ? level.batteries.filter(b => !b.userData.collected).length : 0,
     player: { x: r(camera.position.x), y: r(camera.position.y), z: r(camera.position.z), yaw: r(player.euler.y), pitch: r(player.euler.x) },
     keys: level.keys ? level.keys.map(k => ({ id: k.userData.id, name: k.userData.name, collected: k.userData.collected, x: r(k.position.x), z: r(k.position.z) })) : [],
     exitDoor: level.exitDoor ? { locked: !!level.exitDoor.userData.locked, open: !!level.exitDoor.userData.isOpen } : null,

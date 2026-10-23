@@ -214,6 +214,24 @@ export class AudioManager {
     osc.stop(now + 0.08);
   }
 
+  playFlashlightClick() {
+    if (!this.initialized || this.muted) return;
+    const now = this.context.currentTime;
+    const len = Math.floor(this.context.sampleRate * 0.03);
+    const buffer = this.context.createBuffer(1, len, this.context.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (len * 0.15));
+    const src = this.context.createBufferSource();
+    src.buffer = buffer;
+    const hp = this.context.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 2500;
+    const gain = this.context.createGain();
+    gain.gain.value = 0.35;
+    src.connect(hp); hp.connect(gain); gain.connect(this.masterGain);
+    src.start(now);
+  }
+
   playDoorCreek() {
     if (!this.initialized || this.muted) return;
 
