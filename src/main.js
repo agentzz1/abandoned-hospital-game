@@ -119,6 +119,7 @@ const gameState = {
   jumpscareCount: 0,
   battery: 100,
   flashlightOn: true,
+  catches: 0,
   settings: loadSettings(),
 };
 
@@ -158,6 +159,20 @@ const player = new Player(camera, document.body, scene, level.walls, audioManage
 const interaction = new Interaction(camera, scene, player, audioManager, level, gameState, ui, refreshUi);
 const nav = new NavGrid(level);
 const orderly = new Orderly(scene, nav);
+orderly.onCatch = catchPlayer;
+orderly.onHuntStart = () => audioManager.playSpottedStinger?.();
+
+const SPAWN = { x: 0, z: 0 };
+const ORDERLY_TICK = 0.1;
+// The Orderly wakes when the warning note is read, after this many seconds, or when approached.
+const ORDERLY_WAKE_AFTER = 25;
+let orderlyTickAccum = 0;
+let catchTimer = 0;
+const catchOverlay = document.getElementById("catch-overlay");
+
+function orderlyEnabled() {
+  return gameState.settings.orderlyEnabled !== false;
+}
 
 // Flashlight - realistic warm white
 const flashlight = new THREE.SpotLight(0xfff5e0, 18.0, 30, Math.PI / 5, 0.4, 1.5);
@@ -534,10 +549,10 @@ function stepSimulation(deltaSeconds) {
     updateFlashlight(deltaSeconds);
 
     if (level.navDirty) { nav.build(); level.navDirty = false; }
-    orderly.update(deltaSeconds, camera.position);
+    if (orderlyEnabled()) updateOrderly(deltaSeconds);
 
-    // Random jumpscares
-    gameState.jumpscareTimer -= deltaSeconds;
+    // Random scare stings only in exploration mode: with the Orderly about, every sound should mean something.
+    if (!orderlyEnabled()) gameState.jumpscareTimer -= deltaSeconds;
     if (gameState.jumpscareTimer <= 0) {
       audioManager.playScare();
       gameState.jumpscareCount++;
@@ -559,7 +574,79 @@ function stepSimulation(deltaSeconds) {
     }
   }
 
+  if (gameState.mode === "caught") updateCatch(deltaSeconds);
+
   level.update(deltaSeconds, simulationTime);
+  refreshUi();
+}
+
+function updateOrderly(dt) {
+  const wasDormant = orderly.state === "dormant";
+  orderlyTickAccum += dt;
+  while (orderlyTickAccum >= ORDERLY_TICK && gameState.mode === "playing") {
+    orderlyTickAccum -= ORDERLY_TICK;
+    orderly.think(ORDERLY_TICK, {
+      x: camera.position.x,
+      z: camera.position.z,
+      flashlightOn: gameState.flashlightOn,
+      crouched: player.isCrouched,
+      noiseRadius: player.noiseRadius,
+      hidden: player.hidden,
+      wake: gameState.notesRead > 0 || gameState.elapsed > ORDERLY_WAKE_AFTER,
+    });
+  }
+  if (gameState.mode !== "playing") return;
+  orderly.update(dt, camera.position);
+  if (wasDormant && orderly.state !== "dormant") {
+    audioManager.playDistantReaction?.(orderly.position);
+    showNotification("Irgendwo faellt eine Tuer ins Schloss.");
+  }
+}
+
+function catchPlayer() {
+  if (gameState.mode !== "playing") return;
+  gameState.mode = "caught";
+  gameState.catches++;
+  catchTimer = 0;
+  player.clearInput();
+  audioManager.playCaught?.();
+  uiSet(ui.prompt, 'style.display', 'none');
+  if (catchOverlay) {
+    catchOverlay.className = "grab";
+    catchOverlay.hidden = false;
+  }
+}
+
+// Caught: the camera is yanked toward his face, the screen goes black, then you wake at the entrance.
+function updateCatch(dt) {
+  catchTimer += dt;
+  if (catchTimer < 0.5) {
+    const dx = orderly.position.x - camera.position.x, dz = orderly.position.z - camera.position.z;
+    const targetYaw = Math.atan2(-dx, -dz);
+    let d = targetYaw - player.yaw;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    player.yaw += d * Math.min(1, 14 * dt);
+    player.pitch += (0.25 - player.pitch) * Math.min(1, 10 * dt);
+    player.euler.y = player.yaw;
+    orderly.update(dt, camera.position);
+  } else if (catchTimer < 2.8) {
+    if (catchOverlay && catchOverlay.className !== "black") catchOverlay.className = "black";
+  } else {
+    respawnAfterCatch();
+  }
+}
+
+function respawnAfterCatch() {
+  player.reset();
+  player.euler.y = Math.PI;
+  orderly.resetAfterCatch(SPAWN);
+  gameState.mode = "playing";
+  gameState.message = "Er hat dich erwischt. Was du gefunden hast, bleibt bei dir.";
+  if (catchOverlay) {
+    catchOverlay.className = "fade";
+    setTimeout(() => { if (catchOverlay.className === "fade") catchOverlay.hidden = true; }, 900);
+  }
   refreshUi();
 }
 
@@ -704,7 +791,7 @@ window.sim = {
   }
 };
 
-window.game = { scene, camera, renderer, player, level, interaction, gameState, audioManager, nav, orderly };
+window.game = { scene, camera, renderer, player, level, interaction, gameState, audioManager, nav, orderly, catchPlayer };
 
 window.render_game_to_text = () => {
   const r = v => Math.round(v * 1000) / 1000;
@@ -715,7 +802,7 @@ window.render_game_to_text = () => {
     elapsed: gameState.elapsed, notesRead: gameState.notesRead,
     jumpscareCount: gameState.jumpscareCount,
     battery: Math.round(gameState.battery), flashlightOn: gameState.flashlightOn, stamina: Math.round(player.stamina * 100) / 100,
-    orderly: { x: r(orderly.position.x), z: r(orderly.position.z), state: orderly.state },
+    orderly: { x: r(orderly.position.x), z: r(orderly.position.z), state: orderly.state, awareness: r(orderly.awareness), catches: gameState.catches },
     batteriesLeft: level.batteries ? level.batteries.filter(b => !b.userData.collected).length : 0,
     player: { x: r(camera.position.x), y: r(camera.position.y), z: r(camera.position.z), yaw: r(player.euler.y), pitch: r(player.euler.x) },
     keys: level.keys ? level.keys.map(k => ({ id: k.userData.id, name: k.userData.name, collected: k.userData.collected, x: r(k.position.x), z: r(k.position.z) })) : [],

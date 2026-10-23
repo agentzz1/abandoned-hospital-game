@@ -214,6 +214,75 @@ export class AudioManager {
     osc.stop(now + 0.08);
   }
 
+  // Dissonant hit when the Orderly locks on to the player.
+  playSpottedStinger() {
+    if (!this.initialized || this.muted) return;
+    const ctx = this.context, now = ctx.currentTime;
+    const out = ctx.createGain();
+    out.gain.setValueAtTime(0.0001, now);
+    out.gain.exponentialRampToValueAtTime(0.5, now + 0.04);
+    out.gain.exponentialRampToValueAtTime(0.0001, now + 1.6);
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(4000, now);
+    lp.frequency.exponentialRampToValueAtTime(500, now + 1.4);
+    lp.connect(out); out.connect(this.masterGain);
+    for (const f of [155.6, 164.8, 233.1, 329.6]) {
+      const o = ctx.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(f * 1.02, now);
+      o.frequency.exponentialRampToValueAtTime(f, now + 0.3);
+      const g = ctx.createGain();
+      g.gain.value = 0.18;
+      o.connect(g); g.connect(lp);
+      o.start(now); o.stop(now + 1.7);
+    }
+    this._noiseBurst(0.25, 0.5, 1800, now);
+  }
+
+  // Grabbed: a low impact under a tearing screech.
+  playCaught() {
+    if (!this.initialized || this.muted) return;
+    const ctx = this.context, now = ctx.currentTime;
+    const boom = ctx.createOscillator();
+    const bg = ctx.createGain();
+    boom.type = 'sine';
+    boom.frequency.setValueAtTime(90, now);
+    boom.frequency.exponentialRampToValueAtTime(28, now + 0.9);
+    bg.gain.setValueAtTime(0.9, now);
+    bg.gain.exponentialRampToValueAtTime(0.0001, now + 1.2);
+    boom.connect(bg); bg.connect(this.masterGain);
+    boom.start(now); boom.stop(now + 1.25);
+    const scr = ctx.createOscillator();
+    const sg = ctx.createGain();
+    scr.type = 'square';
+    scr.frequency.setValueAtTime(1400, now);
+    scr.frequency.exponentialRampToValueAtTime(380, now + 0.6);
+    sg.gain.setValueAtTime(0.12, now);
+    sg.gain.exponentialRampToValueAtTime(0.0001, now + 0.7);
+    scr.connect(sg); sg.connect(this.masterGain);
+    scr.start(now); scr.stop(now + 0.75);
+    this._noiseBurst(0.6, 0.9, 900, now);
+  }
+
+  _noiseBurst(duration, level, bandHz, when) {
+    const ctx = this.context;
+    const len = Math.floor(ctx.sampleRate * duration);
+    const buffer = ctx.createBuffer(1, len, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2);
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = bandHz;
+    bp.Q.value = 0.8;
+    const g = ctx.createGain();
+    g.gain.value = level;
+    src.connect(bp); bp.connect(g); g.connect(this.masterGain);
+    src.start(when);
+  }
+
   playFlashlightClick() {
     if (!this.initialized || this.muted) return;
     const now = this.context.currentTime;

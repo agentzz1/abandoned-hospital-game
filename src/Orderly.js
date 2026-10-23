@@ -227,12 +227,30 @@ export const PATROL_POINTS = [
 
 export const SPEED = { patrol: 1.3, investigate: 2.0, search: 1.5, hunt: 4.1 };
 
+const VISION_RANGE_LIT = 14;
+const VISION_RANGE_DARK = 6.5;
+const CROUCH_VISIBILITY = 0.65;
+const VISION_COS = Math.cos(55 * Math.PI / 180);
+const INSTANT_DETECT_DIST = 2.5;
+const CATCH_DIST = 1.0;
+const LOSE_TRACK_AFTER = 5;
+
 export class Orderly {
   constructor(scene, nav) {
     this.scene = scene;
     this.nav = nav;
     this.points = PATROL_POINTS.map(p => ({ ...nav.nearestWalkable(p.x, p.z), name: p.name }));
-    this.state = 'patrol';
+    this.state = 'dormant';
+    this.awareness = 0;
+    this.lastKnown = null;
+    this.lostSightTime = 0;
+    this.searchLeft = 0;
+    this.immuneTime = 0;
+    this.catches = 0;
+    this.repathTimer = 0;
+    this.canSeePlayer = false;
+    this.onCatch = null;
+    this.onHuntStart = null;
     this.position = new THREE.Vector3();
     this.heading = 0;
     this.path = null;
@@ -412,10 +430,180 @@ export class Orderly {
     this.mesh.rotation.y = this.heading;
   }
 
+  // Perception and state decisions, run at a fixed 10 Hz from the game loop.
+  think(dt, ctx) {
+    const dx = ctx.x - this.position.x, dz = ctx.z - this.position.z;
+    const dist = Math.hypot(dx, dz);
+
+    if (this.state === 'dormant') {
+      if (ctx.wake || dist < 4) this.wake();
+      return;
+    }
+
+    if (this.immuneTime > 0) {
+      this.immuneTime -= dt;
+      this.canSeePlayer = false;
+      return;
+    }
+
+    const seen = this.canSee(ctx, dx, dz, dist);
+    this.canSeePlayer = seen;
+    const los = seen || (!ctx.hidden && this.nav.hasLineOfSight(this.position.x, this.position.z, ctx.x, ctx.z));
+    const heard = !ctx.hidden && ctx.noiseRadius > 0 && dist < ctx.noiseRadius * (los ? 1 : 0.6);
+
+    if (seen) {
+      const range = this.visionRange(ctx);
+      // Roughly 1.4s to full alert at 8 m with the light on, 2.7s at 12 m.
+      this.awareness += dist < INSTANT_DETECT_DIST ? 1 : (1.2 * (1 - dist / range) + 0.2) * dt;
+    } else {
+      this.awareness -= (this.state === 'hunt' ? 0.08 : 0.25) * dt;
+    }
+    this.awareness = Math.max(0, Math.min(1, this.awareness));
+
+    if (this.state === 'hunt') {
+      if (seen || heard) {
+        this.lastKnown = { x: ctx.x, z: ctx.z };
+        if (seen) this.lostSightTime = 0;
+      }
+      if (!seen) this.lostSightTime += dt;
+      if (dist < CATCH_DIST && !ctx.hidden) {
+        this.onCatch?.();
+        return;
+      }
+      if (this.lostSightTime > LOSE_TRACK_AFTER && this.atDestination) {
+        this.enterSearch(this.lastKnown || { x: this.position.x, z: this.position.z });
+        this.awareness = 0.5;
+        return;
+      }
+      this.repathTimer -= dt;
+      if (this.repathTimer <= 0 && this.lastKnown) {
+        this.repathTimer = 0.25;
+        if (this.nav.canWalkStraight(this.position.x, this.position.z, this.lastKnown.x, this.lastKnown.z)) {
+          this.path = [this.lastKnown];
+          this.pathIdx = 0;
+        } else {
+          this.setDestination(this.lastKnown.x, this.lastKnown.z);
+        }
+      }
+      return;
+    }
+
+    if (this.awareness >= 1) {
+      this.enterHunt({ x: ctx.x, z: ctx.z });
+      return;
+    }
+    if ((seen && this.awareness > 0.25) || heard) {
+      const t = { x: ctx.x, z: ctx.z };
+      const far = !this.lastKnown || Math.hypot(t.x - this.lastKnown.x, t.z - this.lastKnown.z) > 1.5;
+      if (this.state !== 'investigate' || far) this.enterInvestigate(t);
+    }
+  }
+
+  visionRange(ctx) {
+    return (ctx.flashlightOn ? VISION_RANGE_LIT : VISION_RANGE_DARK) * (ctx.crouched ? CROUCH_VISIBILITY : 1);
+  }
+
+  canSee(ctx, dx, dz, dist) {
+    if (ctx.hidden) return false;
+    if (dist > this.visionRange(ctx)) return false;
+    if (dist > 2) {
+      const f = this.forward;
+      if ((f.x * dx + f.z * dz) / dist < VISION_COS) return false;
+    }
+    return this.nav.hasLineOfSight(this.position.x, this.position.z, ctx.x, ctx.z);
+  }
+
+  wake() {
+    if (this.state !== 'dormant') return;
+    this.state = 'patrol';
+    this.waitTimer = 0.8;
+  }
+
+  enterHunt(target) {
+    const wasHunting = this.state === 'hunt';
+    this.state = 'hunt';
+    this.awareness = 1;
+    this.lastKnown = target;
+    this.lostSightTime = 0;
+    this.repathTimer = 0;
+    this.waitTimer = 0;
+    if (!wasHunting) this.onHuntStart?.();
+  }
+
+  enterInvestigate(target) {
+    // Coming out of a calm patrol, he freezes for a beat as if listening.
+    this.waitTimer = this.state === 'patrol' ? 0.6 : 0;
+    this.state = 'investigate';
+    this.lastKnown = target;
+    this.setDestination(target.x, target.z);
+  }
+
+  enterSearch(around) {
+    this.state = 'search';
+    this.searchCenter = around;
+    this.searchLeft = 2;
+    this.waitTimer = 1.5;
+    this.path = null;
+  }
+
+  // After a catch: reset to an unaware patrol at the point furthest from where the player respawns.
+  resetAfterCatch(spawn) {
+    let best = this.points[0], bestD = -1;
+    for (const p of this.points) {
+      if (p.name === 'Ausgang') continue;
+      const d = Math.hypot(p.x - spawn.x, p.z - spawn.z);
+      if (d > bestD) { bestD = d; best = p; }
+    }
+    this.teleport(best.x, best.z);
+    this.catches++;
+    this.state = 'patrol';
+    this.awareness = 0;
+    this.lastKnown = null;
+    this.waitTimer = 2;
+    this.immuneTime = 4;
+  }
+
   update(dt, playerPos) {
-    if (this.state === 'patrol') {
-      this.speed = SPEED.patrol;
-      this.updatePatrol(dt, playerPos);
+    const pity = Math.max(0.78, 1 - 0.08 * this.catches);
+    switch (this.state) {
+      case 'patrol':
+        this.speed = SPEED.patrol;
+        this.updatePatrol(dt, playerPos);
+        break;
+      case 'investigate':
+        this.speed = SPEED.investigate;
+        if (this.waitTimer > 0) { this.waitTimer -= dt; break; }
+        if (!this.move(dt)) this.enterSearch(this.lastKnown || { x: this.position.x, z: this.position.z });
+        break;
+      case 'search':
+        this.speed = SPEED.search;
+        if (this.waitTimer > 0) {
+          this.waitTimer -= dt;
+          this._headTurn = Math.sin(this._animTime * 1.6) * 0.9;
+          break;
+        }
+        if (!this.move(dt)) {
+          if (this.path) { this.path = null; this.waitTimer = 1.2 + Math.random(); break; }
+          if (this.searchLeft-- > 0) {
+            const p = this.nav.randomWalkableNear(this.searchCenter.x, this.searchCenter.z, 3);
+            if (p) this.setDestination(p.x, p.z);
+          } else {
+            this.state = 'patrol';
+            this.lastKnown = null;
+            this.waitTimer = 0.5;
+          }
+        }
+        break;
+      case 'hunt':
+        this.speed = SPEED.hunt * pity;
+        this._headTurn *= 0.8;
+        this.move(dt);
+        if (playerPos && this.canSeePlayer) {
+          this.turnToward(Math.atan2(playerPos.x - this.position.x, playerPos.z - this.position.z), dt, 8);
+        }
+        break;
+      default:
+        this.moving = false;
     }
     this.animate(dt);
   }
