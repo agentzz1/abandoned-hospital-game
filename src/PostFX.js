@@ -94,6 +94,8 @@ export class PostFX {
     this._frameSamples = 0;
     this._frameTimeSum = 0;
     let next = this.pixelRatio;
+    // Already at the lowest resolution and still slow: let the game drop its costliest extras.
+    if (avg > 1 / 45 && this.pixelRatio <= this.minPixelRatio) this.onStruggle?.();
     if (avg > 1 / 45) next = Math.max(this.minPixelRatio, this.pixelRatio - 0.25);
     else if (avg < 1 / 58) next = Math.min(this.maxPixelRatio, this.pixelRatio + 0.125);
     if (next !== this.pixelRatio) {

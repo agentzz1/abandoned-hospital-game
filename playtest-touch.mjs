@@ -20,7 +20,7 @@ const cdp = await ctx.newCDPSession(page);
 const touch = (type, points) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: points.map((p, i) => ({ x: p[0], y: p[1], id: p[2] ?? i })) });
 const S = () => page.evaluate(() => { const g = window.game; return { x: +g.camera.position.x.toFixed(2), z: +g.camera.position.z.toFixed(2), yaw: +g.player.yaw.toFixed(2), mode: g.gameState.mode, light: g.gameState.flashlightOn, crouch: g.player.isCrouched, sprint: g.player.isSprinting, prompt: document.getElementById('interaction-prompt').textContent }; });
 
-console.log('touch mode on:', await page.evaluate(() => document.body.classList.contains('touch')), '| texture size 256:', await page.evaluate(() => window.game.level.walls[0].material.map.image.width === 256));
+console.log('touch mode on:', await page.evaluate(() => document.body.classList.contains('touch')), '| phone texture set (512 px):', await page.evaluate(() => window.game.level.walls[0].material.map.image.width === 512));
 await page.evaluate(() => { window.game.gameState.settings.orderlyEnabled = false; });
 await page.screenshot({ path: SP + '/touch-landscape.png' });
 

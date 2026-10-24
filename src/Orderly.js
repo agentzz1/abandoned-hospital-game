@@ -267,6 +267,7 @@ export class Orderly {
     this._headTurn = 0;
 
     this.mesh = this._buildFigure();
+    this.mesh.traverse(o => { if (o.isMesh) o.castShadow = true; });
     scene.add(this.mesh);
     const start = this.points[7];
     this.teleport(start.x, start.z);
