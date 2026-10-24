@@ -1,0 +1,10 @@
+Textures from Poly Haven (https://polyhaven.com), licensed CC0 (public domain).
+Recompressed for the web; "hi" = 1024 px colour/normal maps, "lo" = 512 px for phones.
+
+white_rough_plaster  - walls
+painted_concrete     - green lower wall paint
+worn_tile_floor      - floor
+white_plaster_02     - ceiling
+metal_plate          - equipment, frames, pipes
+rough_pine_door      - wooden furniture, exit door
+green_metal_rust     - lockers and cabinets

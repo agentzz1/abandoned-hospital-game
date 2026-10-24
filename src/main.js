@@ -6,7 +6,8 @@ import { AudioManager } from './Audio.js';
 import { PostFX } from './PostFX.js';
 import { NavGrid, Orderly } from './Orderly.js';
 import { TouchControls } from './TouchControls.js';
-import { setDefaultTextureSize } from './TextureGen.js';
+import { loadMaterials } from './Materials.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 // Phones and tablets: touch controls, lighter textures and a lower starting resolution.
 const prefersTouch = window.matchMedia?.('(pointer: coarse)').matches ?? false;
@@ -143,16 +144,14 @@ scene.background = new THREE.Color(0x0a0c10);
 scene.fog = new THREE.FogExp2(0x0a0c10, 0.018);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
+// The flashlight and fill light are children of the camera; they only light the scene if the camera is in it.
+scene.add(camera);
 
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance", stencil: false, depth: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
-// The only shadow caster is the static moonlight, so the shadow map is rendered
-// once and refreshed only when level geometry moves (see level.shadowsDirty).
-renderer.shadowMap.autoUpdate = false;
-renderer.shadowMap.needsUpdate = true;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.2;
 if ("outputColorSpace" in renderer) {
@@ -164,10 +163,21 @@ document.body.appendChild(renderer.domElement);
 const postFX = new PostFX(renderer, scene, camera, window.innerWidth, window.innerHeight,
   prefersTouch ? { maxPixelRatio: 1.25, startPixelRatio: 1 } : {});
 
+// A dim, blurred room reflection gives wet floors and metal believable highlights; computed once.
+{
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  scene.environmentIntensity = 0.12;
+  pmrem.dispose();
+}
+
 const audioManager = new AudioManager(camera, scene);
 audioManager.setVolume(gameState.settings.volume);
-setDefaultTextureSize(prefersTouch ? 256 : 512);
-const level = new Level(scene);
+const materials = await loadMaterials(renderer, { lowQuality: prefersTouch });
+const level = new Level(scene, materials);
+// The moonlight never moves: render its shadow map once, and again only when the exit door moves.
+level.sunLight.shadow.autoUpdate = false;
+level.sunLight.shadow.needsUpdate = true;
 const player = new Player(camera, document.body, scene, level.walls, audioManager, ui, gameState);
 const interaction = new Interaction(camera, scene, player, audioManager, level, gameState, ui, refreshUi);
 const nav = new NavGrid(level);
@@ -221,12 +231,42 @@ function orderlyEnabled() {
   return gameState.settings.orderlyEnabled !== false;
 }
 
-// Flashlight - realistic warm white
-const flashlight = new THREE.SpotLight(0xfff5e0, 18.0, 30, Math.PI / 5, 0.4, 1.5);
-flashlight.position.set(0, 0, 0);
-flashlight.target.position.set(0, 0, -1);
+// Flashlight: held low and to the right of the eyes, so it throws visible, moving shadows.
+const flashlight = new THREE.SpotLight(0xfff5e0, 18.0, 30, Math.PI / 5, 0.45, 1.5);
+flashlight.position.set(0.22, -0.22, 0);
+flashlight.target.position.set(0, 0, -8);
 camera.add(flashlight);
 camera.add(flashlight.target);
+// Shadows and a lens pattern cost a second render of nearby geometry, so desktops only.
+function setFlashlightShadows(on) {
+  flashlight.castShadow = on;
+  flashlight.map = on ? flashlightCookie() : null;
+}
+function flashlightCookie() {
+  const size = 256, c = document.createElement("canvas");
+  c.width = c.height = size;
+  const ctx = c.getContext("2d");
+  const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  g.addColorStop(0, "#fff"); g.addColorStop(0.22, "#f4f4f4"); g.addColorStop(0.3, "#bdbdbd");
+  g.addColorStop(0.42, "#d8d8d8"); g.addColorStop(0.62, "#7a7a7a"); g.addColorStop(0.85, "#262626"); g.addColorStop(1, "#000");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, size, size);
+  // Faint smudges on the lens, like a cheap old torch.
+  for (let i = 0; i < 14; i++) {
+    const r = 8 + Math.random() * 26;
+    ctx.fillStyle = `rgba(0,0,0,${0.05 + Math.random() * 0.08})`;
+    ctx.beginPath(); ctx.arc(size / 2 + (Math.random() - 0.5) * size * 0.5, size / 2 + (Math.random() - 0.5) * size * 0.5, r, 0, Math.PI * 2); ctx.fill();
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+flashlight.shadow.mapSize.set(1024, 1024);
+flashlight.shadow.camera.near = 0.2;
+flashlight.shadow.camera.far = 22;
+flashlight.shadow.bias = -0.0006;
+flashlight.shadow.normalBias = 0.03;
+setFlashlightShadows(!prefersTouch);
+postFX.onStruggle = () => { if (flashlight.castShadow) setFlashlightShadows(false); };
 
 const fillLight = new THREE.PointLight(0xdde8ff, 1.5, 20, 2);
 fillLight.position.set(0, 0.1, 0);
@@ -762,7 +802,7 @@ function respawnAfterCatch() {
 }
 
 function renderFrame(deltaSeconds = 1 / 60) {
-  if (level.shadowsDirty) { renderer.shadowMap.needsUpdate = true; level.shadowsDirty = false; }
+  if (level.shadowsDirty) { level.sunLight.shadow.needsUpdate = true; level.shadowsDirty = false; }
   postFX.render(deltaSeconds);
 }
 

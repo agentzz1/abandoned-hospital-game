@@ -1,9 +1,19 @@
 import * as THREE from 'three';
-import { createPBRMaterial } from './TextureGen.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { worldBoxUV, scalePlaneUV } from './Materials.js';
+
+const H = 3;
+const WAINSCOT_H = 0.9;
 
 export class Level {
-  constructor(scene) {
+  constructor(scene, materials) {
     this.scene = scene;
+    this.mats = materials;
+    // Real-world size (metres) one texture repeat covers, per material.
+    this._tiles = new Map([
+      [materials.wall, 2.4], [materials.wood, 1.2], [materials.metal, 1.0], [materials.locker, 1.0],
+    ]);
+    this._wallSpans = [];
     this.walls = [];
     this.lights = [];
     this.key = null;
@@ -14,23 +24,16 @@ export class Level {
   }
 
   _build() {
-    // Realistic PBR Materials
-    const wall = createPBRMaterial("wall", { repeat: [3, 1.5], seed: 42 });
-    const metal = createPBRMaterial("metal", { seed: 100 });
-    const wood = createPBRMaterial("wood", { repeat: [2, 2], seed: 200 });
-    const paper = new THREE.MeshStandardMaterial({ color: 0xe8e0d0, roughness: 0.95, side: THREE.DoubleSide });
-    const fabric = new THREE.MeshStandardMaterial({ color: 0x5a7a6a, roughness: 0.92 });
-    const floorMat = createPBRMaterial("concrete", { repeat: [6, 6], seed: 500, baseR: 80, baseG: 82, baseB: 85 });
-    const ceilMat = createPBRMaterial("ceiling", { repeat: [4, 4], seed: 600 });
+    const { wall, metal, wood, locker } = this.mats;
+    const paper = new THREE.MeshStandardMaterial({ color: 0xd8d0bc, roughness: 0.95, side: THREE.DoubleSide });
+    const fabric = new THREE.MeshStandardMaterial({ color: 0x46564e, roughness: 0.95 });
 
-    const H = 3;
-
-    // Floor
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), floorMat);
+    // Floor: 0.5 m tiles (the texture holds 4x4 tiles per 2 m)
+    const floor = new THREE.Mesh(scalePlaneUV(new THREE.PlaneGeometry(40, 40), 40, 40, 2), this.mats.floor);
     floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; this.scene.add(floor);
 
     // Ceiling
-    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), ceilMat);
+    const ceil = new THREE.Mesh(scalePlaneUV(new THREE.PlaneGeometry(40, 40), 40, 40, 3), this.mats.ceiling);
     ceil.rotation.x = Math.PI / 2; ceil.position.y = H; this.scene.add(ceil);
 
     // ========== OUTER WALLS ==========
@@ -63,30 +66,27 @@ export class Level {
     // ========== ROOMS ==========
 
     // --- WAITING ROOM (left, bottom) ---
-    this._w(wall, 0.3, H, 10, -10, H/2, 0);
     this._w(wall, 7, H, 0.3, -6.5, H/2, -5);
     // North wall shared with the file room above it (line ~84) - glazed there instead of built twice.
     this._b(wood, 2.5, 0.8, 1, -7, 0.4, -1, true);
     for (let i = 0; i < 3; i++) this._b(fabric, 0.5, 0.5, 0.5, -5.5, 0.25, 1 + i * 1.2, true);
 
     // --- STORAGE (right, bottom) ---
-    this._w(wall, 0.3, H, 10, 10, H/2, 0);
     this._w(wall, 7, H, 0.3, 6.5, H/2, -5);
     // North wall shared with the OP room above it (line ~91) - glazed there instead of built twice.
-    this._b(metal, 1.2, 1.8, 0.5, 8.5, 0.9, -1, true);
-    this._b(metal, 1.2, 1.8, 0.5, 8.5, 0.9, 1, true);
+    this._b(locker, 1.2, 1.8, 0.5, 8.5, 0.9, -1, true);
+    this._b(locker, 1.2, 1.8, 0.5, 8.5, 0.9, 1, true);
     this._b(wood, 0.6, 0.6, 0.6, 5.5, 0.3, 2, true);
 
     // --- FILE ROOM (left, top) ---
-    this._w(wall, 0.3, H, 7, -10, H/2, 8.5);
     // Shared wall with the waiting room below - windowed so its glow (and the blue key) is visible from the corridor.
     this._glassWindow(wall, wood, 'x', 0.3, 7, H, -6.5, 5);
     this._w(wall, 7, H, 0.3, -6.5, H/2, 12);
-    for (let i = 0; i < 3; i++) this._b(wood, 0.5, 1.8, 0.4, -8.5 + i * 1.3, 0.9, 11, true);
+    // Painted steel filing cabinets
+    for (let i = 0; i < 3; i++) this._b(locker, 0.5, 1.8, 0.4, -8.5 + i * 1.3, 0.9, 11, true);
     this._b(wood, 1.5, 0.8, 0.8, -6, 0.4, 8, true);
 
     // --- OP ROOM (right, top) ---
-    this._w(wall, 0.3, H, 7, 10, H/2, 8.5);
     // Shared wall with the storage room below - windowed so its glow (and the orange key) is visible from the corridor.
     this._glassWindow(wall, metal, 'x', 0.3, 7, H, 6.5, 5);
     this._w(wall, 7, H, 0.3, 6.5, H/2, 12);
@@ -186,9 +186,6 @@ export class Level {
     this._light(6.5, 2.6, 8.5, 0xbbddee, 3.0, 14, 2.5);
     this._light(0, 2.7, 14, 0xaaffcc, 3.0, 12, 0.8);
 
-    // Lamps
-    this._lamp(0, 2.95, 0);
-    this._lamp(0, 2.95, 10);
 
     // Volumetric light rays
     this._volumetricRay(-2, 2.95, -4, 0.8, 4, 0xddeeff, 0.025);
@@ -197,6 +194,9 @@ export class Level {
 
     // Dust particles
     this._dust();
+
+    this._wallDetails();
+    this._ceilingGrid();
   }
 
   // Visual frame around a doorway in a wall running along Z at a given x
@@ -224,6 +224,7 @@ export class Level {
     const half = length / 2;
     const wOf = (len) => axis === 'x' ? len : thickness;
     const dOf = (len) => axis === 'x' ? thickness : len;
+    this._wallSpans.push({ w: wOf(length), d: dOf(length), x: cx, z: cz });
 
     this._w(wallMat, wOf(length), bottomH, dOf(length), cx, bottomH / 2, cz);
     this._w(wallMat, wOf(length), topH, dOf(length), cx, h - topH / 2, cz);
@@ -256,16 +257,103 @@ export class Level {
     }
   }
 
-  _w(mat, w, h, d, x, y, z) {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  _box(mat, w, h, d, x, y, z) {
+    const geo = new THREE.BoxGeometry(w, h, d);
+    const tile = this._tiles.get(mat);
+    if (tile) worldBoxUV(geo, w, h, d, x, y, z, tile);
+    const m = new THREE.Mesh(geo, mat);
     m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true;
-    this.scene.add(m); this.walls.push(m); return m;
+    this.scene.add(m);
+    return m;
+  }
+
+  _w(mat, w, h, d, x, y, z) {
+    const m = this._box(mat, w, h, d, x, y, z);
+    if (h >= H - 0.01) this._wallSpans.push({ w, d, x, z });
+    this.walls.push(m); return m;
   }
 
   _b(mat, w, h, d, x, y, z, block) {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
-    m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true;
-    this.scene.add(m); if (block) this.walls.push(m); return m;
+    const m = this._box(mat, w, h, d, x, y, z);
+    if (block) this.walls.push(m); return m;
+  }
+
+  // Lower-wall paint, bumper rail and skirting on every full-height wall, plus a soft dark band where
+  // walls meet the floor. Each layer is merged into one mesh so the detail costs a few draw calls.
+  _wallDetails() {
+    const paint = [], rail = [], skirt = [], grime = [];
+    for (const { w, d, x, z } of this._wallSpans) {
+      const add = (list, ex, h, y, tile) => {
+        const g = new THREE.BoxGeometry(w + ex, h, d + ex);
+        if (tile) worldBoxUV(g, w + ex, h, d + ex, x, y, z, tile);
+        g.translate(x, y, z);
+        list.push(g);
+      };
+      add(paint, 0.02, WAINSCOT_H, WAINSCOT_H / 2, 3.2);
+      add(rail, 0.06, 0.07, WAINSCOT_H + 0.02);
+      add(skirt, 0.04, 0.1, 0.05);
+      const alongX = w >= d;
+      const len = alongX ? w : d;
+      for (const side of [-1, 1]) grime.push(this._grimeStrip(x, z, alongX, len, (alongX ? d : w) / 2 + 0.02, side));
+    }
+    const railMat = new THREE.MeshStandardMaterial({ color: 0x3b3f3a, roughness: 0.55, metalness: 0.3 });
+    const skirtMat = new THREE.MeshStandardMaterial({ color: 0x1d1f1e, roughness: 0.8 });
+    const grad = document.createElement('canvas');
+    grad.width = 64; grad.height = 1;
+    const gctx = grad.getContext('2d');
+    const gr = gctx.createLinearGradient(0, 0, 64, 0);
+    gr.addColorStop(0, '#fff'); gr.addColorStop(0.35, '#777'); gr.addColorStop(1, '#000');
+    gctx.fillStyle = gr; gctx.fillRect(0, 0, 64, 1);
+    const grimeMat = new THREE.MeshBasicMaterial({
+      color: 0x000000, transparent: true, opacity: 0.6, alphaMap: new THREE.CanvasTexture(grad),
+      depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2,
+    });
+    const layers = [[paint, this.mats.wainscot, true], [rail, railMat, true], [skirt, skirtMat, false], [grime, grimeMat, false]];
+    for (const [list, mat, cast] of layers) {
+      const m = new THREE.Mesh(mergeGeometries(list), mat);
+      m.receiveShadow = mat !== grimeMat; m.castShadow = cast;
+      this.scene.add(m);
+    }
+  }
+
+  // A floor quad from a wall face outwards, u = 0 at the wall (dark) to 1 (clear).
+  _grimeStrip(x, z, alongX, len, offset, side) {
+    const depth = 0.45, y = 0.004;
+    const a = offset * side, b = (offset + depth) * side;
+    const p = alongX
+      ? [x - len / 2, y, z + a, x + len / 2, y, z + a, x - len / 2, y, z + b, x + len / 2, y, z + b]
+      : [x + a, y, z - len / 2, x + a, y, z + len / 2, x + b, y, z - len / 2, x + b, y, z + len / 2];
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute([0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0], 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 0, 1, 1, 0, 1, 1], 2));
+    g.setIndex([0, 2, 1, 1, 2, 3]);
+    return g;
+  }
+
+  // Suspended ceiling: a 0.6 m T-bar grid with a few missing tiles and one hanging loose.
+  _ceilingGrid() {
+    const bars = [];
+    const y = H - 0.015;
+    for (let x = -10; x <= 10.001; x += 0.6) {
+      const g = new THREE.BoxGeometry(0.025, 0.02, 23); g.translate(x, y, 4.5); bars.push(g);
+    }
+    for (let z = -7; z <= 16.001; z += 0.6) {
+      const g = new THREE.BoxGeometry(20, 0.02, 0.025); g.translate(0, y, z); bars.push(g);
+    }
+    const grid = new THREE.Mesh(mergeGeometries(bars), new THREE.MeshStandardMaterial({ color: 0x8e8c84, roughness: 0.7, metalness: 0.1 }));
+    this.scene.add(grid);
+
+    const holes = [];
+    for (const [cx, cz] of [[-6.1, 1.7], [-7.3, 2.3], [5.9, -3.1], [0.5, 6.5], [-0.1, 11.3], [7.7, 10.7], [-8.5, -6.1]]) {
+      const g = new THREE.PlaneGeometry(0.58, 0.58); g.rotateX(Math.PI / 2); g.translate(cx, H - 0.006, cz); holes.push(g);
+    }
+    this.scene.add(new THREE.Mesh(mergeGeometries(holes), new THREE.MeshBasicMaterial({ color: 0x020203, side: THREE.DoubleSide })));
+    const loose = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.015, 0.58), this.mats.ceiling);
+    loose.position.set(-6.1 + 0.18, H - 0.32, 1.7);
+    loose.rotation.z = 0.9; loose.rotation.x = 0.15;
+    loose.castShadow = true;
+    this.scene.add(loose);
   }
 
   _blood(x, y, z) {
@@ -278,8 +366,9 @@ export class Level {
   }
 
   _exitDoor(w, h, d, x, y, z) {
-    const mat = createPBRMaterial("wood", { seed: 800, baseR: 74, baseG: 58, baseB: 42 });
-    const door = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+    const mat = this.mats.wood.clone();
+    mat.color.setHex(0x8a7868);
+    const door = new THREE.Mesh(worldBoxUV(new THREE.BoxGeometry(w, h, d), w, h, d, 0, 0, 0, 1.2), mat);
     door.position.set(x, y, z); door.castShadow = true;
     const handle = new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 12),
       new THREE.MeshStandardMaterial({ color: 0x8a8a7a, roughness: 0.3, metalness: 0.8 }));
@@ -320,9 +409,9 @@ export class Level {
   // facing: rotation.y so that the door (local +Z) points into the room.
   _locker(x, z, facing) {
     const g = new THREE.Group();
-    const steel = new THREE.MeshStandardMaterial({ color: 0x4a5650, roughness: 0.55, metalness: 0.6 });
+    const steel = this.mats.locker;
     const slit = new THREE.MeshStandardMaterial({ color: 0x050607, roughness: 1 });
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.8, 2.0, 0.55), steel);
+    const body = new THREE.Mesh(worldBoxUV(new THREE.BoxGeometry(0.8, 2.0, 0.55), 0.8, 2.0, 0.55, x, 1, z, 1.0), steel);
     body.position.y = 1.0;
     body.castShadow = true; body.receiveShadow = true;
     g.add(body);
@@ -400,35 +489,59 @@ export class Level {
   _light(x, y, z, color, intensity, distance, seed) {
     // Point-light shadows render the scene six times each per frame; the moonlight carries the shadows.
     const l = new THREE.PointLight(color, intensity, distance); l.position.set(x, y, z);
-    this.scene.add(l); this.lights.push({ light: l, baseIntensity: intensity, seed });
+    this.scene.add(l);
+    const tube = this._lamp(x, H - 0.03, z);
+    this.lights.push({ light: l, baseIntensity: intensity, seed, tube });
   }
 
+  // Fluorescent fitting under the ceiling; returns the tube material so it can flicker with its light.
   _lamp(x, y, z) {
-    const mat = new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.5, metalness: 0.6 });
-    const bulb = new THREE.MeshStandardMaterial({ color: 0xffeedd, emissive: 0xffddaa, emissiveIntensity: 0.6 });
-    const frame = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.06, 0.25), mat);
-    frame.position.set(x, y, z);
-    this.scene.add(frame);
-    const bulbMesh = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.02, 0.12), bulb);
-    bulbMesh.position.set(x, y - 0.04, z);
-    this.scene.add(bulbMesh);
+    const housing = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.06, 0.3), new THREE.MeshStandardMaterial({ color: 0x9a9a92, roughness: 0.5, metalness: 0.5 }));
+    housing.position.set(x, y, z);
+    this.scene.add(housing);
+    const tubeMat = new THREE.MeshStandardMaterial({ color: 0xf4f0e6, emissive: 0xfff2dc, emissiveIntensity: 1.6 });
+    for (const dz of [-0.07, 0.07]) {
+      const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1.1, 8), tubeMat);
+      tube.rotation.z = Math.PI / 2;
+      tube.position.set(x, y - 0.05, z + dz);
+      this.scene.add(tube);
+    }
+    return tubeMat;
   }
 
+  // A soft shaft of light: brightest at the source and in the middle of the beam, fading out at its
+  // silhouette edges and towards the floor, so it reads as lit dust rather than a solid cone.
   _volumetricRay(x, y, z, radius, height, color, opacity) {
-    const geo = new THREE.ConeGeometry(radius, height, 16, 1, true);
-    const mat = new THREE.MeshBasicMaterial({
-      color,
+    const geo = new THREE.ConeGeometry(radius, height, 24, 1, true);
+    const mat = new THREE.ShaderMaterial({
+      uniforms: { uColor: { value: new THREE.Color(color) }, uOpacity: { value: opacity * 3.5 } },
+      vertexShader: `
+        varying vec3 vNormal; varying vec3 vView; varying float vH;
+        void main() {
+          vH = uv.y;
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          vNormal = normalize(normalMatrix * normal);
+          vView = normalize(-mv.xyz);
+          gl_Position = projectionMatrix * mv;
+        }`,
+      fragmentShader: `
+        uniform vec3 uColor; uniform float uOpacity;
+        varying vec3 vNormal; varying vec3 vView; varying float vH;
+        void main() {
+          float facing = abs(dot(normalize(vNormal), normalize(vView)));
+          float a = uOpacity * pow(facing, 2.0) * smoothstep(0.0, 0.7, vH) * vH;
+          gl_FragColor = vec4(uColor * a, 1.0);
+        }`,
       transparent: true,
-      opacity,
       side: THREE.DoubleSide,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
     });
     const cone = new THREE.Mesh(geo, mat);
     cone.position.set(x, y - height / 2, z);
+    cone.userData.baseOpacity = opacity * 3.5;
     this.scene.add(cone);
     this.volumetricMeshes.push(cone);
-
   }
 
   _dust() {
@@ -553,6 +666,7 @@ export class Level {
       const p = 0.88 + Math.sin(ts + s) * 0.08;
       const d = Math.sin(td + s * 5) > 0.95 ? -0.5 : 0;
       e.light.intensity = Math.max(0.05, f + p * e.baseIntensity + d);
+      if (e.tube) e.tube.emissiveIntensity = 1.6 * (e.light.intensity / e.baseIntensity);
     }
 
     // "Presence" light dip overrides the flicker above for its short duration.
@@ -561,6 +675,7 @@ export class Level {
       ld.elapsed += delta;
       if (ld.elapsed < ld.duration) {
         this.lights[ld.idx].light.intensity = 0.03;
+        if (this.lights[ld.idx].tube) this.lights[ld.idx].tube.emissiveIntensity = 0.05;
       } else {
         this._lightDip = null;
       }
@@ -581,7 +696,7 @@ export class Level {
     // Volumetric ray opacity pulsing
     for (let i = 0; i < this.volumetricMeshes.length; i++) {
       const m = this.volumetricMeshes[i];
-      m.material.opacity = 0.015 + Math.sin(time * 0.5 + i * 2) * 0.01 + Math.sin(time * 2.3 + i) * 0.005;
+      m.material.uniforms.uOpacity.value = m.userData.baseOpacity * (0.8 + Math.sin(time * 0.5 + i * 2) * 0.15 + Math.sin(time * 2.3 + i) * 0.05);
     }
 
     // Enhanced dust particle movement
