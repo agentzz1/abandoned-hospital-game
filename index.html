@@ -230,6 +230,9 @@
       .menu-tagline { margin:12px 0 0; max-width:440px; font-size:15px; line-height:1.55; color:#aab4c3; text-shadow:0 1px 8px rgba(0,0,0,0.9); }
       .menu-hint { margin:14px 0 0; max-width:460px; padding:10px 12px; border:1px solid rgba(255,255,255,0.09); border-radius:12px; background:rgba(8,10,14,0.78); font-size:12.5px; line-height:1.45; color:var(--text); }
       .menu-hint p { margin:0; }
+      #sound-hint { display:flex; align-items:center; gap:10px; padding:6px 6px 6px 12px; }
+      #sound-hint p { flex:1; }
+      #sound-hint button { flex:none; padding:10px 12px; background:transparent; color:var(--accent); font-size:13px; }
       .menu-buttons { display:grid; gap:10px; }
       .menu-buttons button { width:100%; text-align:left; padding:12px 18px; background:rgba(16,19,25,0.86); color:var(--text); border:1px solid rgba(255,255,255,0.08); }
       .menu-buttons button.primary { background:linear-gradient(135deg,#1a3a2a,#0d1f18); color:var(--accent-green); border-color:rgba(128,192,144,0.35); font-size:16px; }
@@ -546,6 +549,10 @@
             <p class="eyebrow">Ein Horror-Fluchtspiel</p>
             <h1 id="menu-title">Verlassenes Krankenhaus</h1>
             <p class="menu-tagline">Finde zwei Schlüssel und entkomme. Der Wärter macht noch immer seine Runden.</p>
+            <div id="sound-hint" class="menu-hint" hidden>
+              <p><strong>Kein Ton?</strong> Im Lautlos-Modus (Schalter oder Aktionstaste) bleibt das Spiel stumm. Am besten mit Kopfhörern spielen.</p>
+              <button id="sound-hint-ok" type="button">Verstanden</button>
+            </div>
           </div>
           <div class="menu-buttons">
             <button id="menu-play" type="button" class="primary">Spielen</button>
@@ -683,6 +690,10 @@
             <div class="setting-row setting-row-checkbox">
               <label for="explore-checkbox">Ohne Wärter spielen (nur erkunden)</label>
               <input type="checkbox" id="explore-checkbox">
+            </div>
+            <div class="setting-row setting-row-checkbox native-only">
+              <label for="haptics-checkbox">Vibration</label>
+              <input type="checkbox" id="haptics-checkbox">
             </div>
           </div>
           <div class="action-row">

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { haptic } from './Native.js';
 
 // How close the player has to get before a key is picked up automatically.
 const PICKUP_RADIUS = 1.8;
@@ -120,6 +121,7 @@ export class Interaction {
     this.player.enterHiding(d.inside, d.facing);
     this.gameState.hiddenIn = locker;
     this.audioManager.playLockerDoor?.();
+    haptic('medium');
     this.currentInteractable = null;
     document.getElementById('hide-overlay')?.removeAttribute('hidden');
     this.onHide?.(locker);
@@ -132,6 +134,7 @@ export class Interaction {
     this.player.leaveHiding(locker.userData.front, locker.userData.facing);
     this.gameState.hiddenIn = null;
     this.audioManager.playLockerDoor?.();
+    haptic('light');
     document.getElementById('hide-overlay')?.setAttribute('hidden', '');
     if (this.ui.prompt) this.ui.prompt.style.display = 'none';
     this.refreshUi();
@@ -141,6 +144,7 @@ export class Interaction {
     if (!this.level.collectBattery(battery)) return;
     this.gameState.battery = Math.min(100, (this.gameState.battery ?? 0) + BATTERY_CHARGE);
     this.audioManager.playPickup();
+    haptic('medium');
     this._needsRefresh = true;
     if (this.currentInteractable === battery) {
       this.currentInteractable = null;
@@ -294,6 +298,7 @@ export class Interaction {
     if (!keyData) return;
 
     this.audioManager.playPickup();
+    haptic('success');
     this.gameState.keysCollected = this.gameState.keysCollected || [];
     this.gameState.keysCollected.push(keyId);
     this._needsRefresh = true;

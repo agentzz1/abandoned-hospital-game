@@ -8,8 +8,8 @@ import { PostFX } from './PostFX.js';
 import { NavGrid, Orderly } from './Orderly.js';
 import { TouchControls } from './TouchControls.js';
 import { loadMaterials } from './Materials.js';
-import { isNativeApp } from './Native.js';
-import { isStandalone } from './Platform.js';
+import { haptic, isNativeApp, setHapticsEnabled, warmUpHaptics } from './Native.js';
+import { isIOS, isStandalone } from './Platform.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 // One line each at startup and after the first rendered frame; the iOS simulator smoke test looks for them.
@@ -19,6 +19,7 @@ console.info('[krankenhaus] boot');
 const prefersTouch = window.matchMedia?.('(pointer: coarse)').matches ?? false;
 // Inside the App Store build browser-only things (fullscreen, install tips) are hidden.
 const nativeApp = isNativeApp();
+warmUpHaptics();
 document.body.classList.toggle('native', nativeApp);
 document.body.classList.toggle('standalone', isStandalone());
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';
@@ -67,7 +68,7 @@ function uiSet(el, prop, val) {
 }
 
 const SETTINGS_KEY = "hospitalGame.settings";
-const DEFAULT_SETTINGS = { volume: 0.5, mouseSensitivity: 1.0, invertY: false, orderlyEnabled: true };
+const DEFAULT_SETTINGS = { volume: 0.5, mouseSensitivity: 1.0, invertY: false, orderlyEnabled: true, haptics: true };
 
 function loadSettings() {
   try {
@@ -79,6 +80,7 @@ function loadSettings() {
       mouseSensitivity: typeof parsed.mouseSensitivity === "number" ? parsed.mouseSensitivity : DEFAULT_SETTINGS.mouseSensitivity,
       invertY: typeof parsed.invertY === "boolean" ? parsed.invertY : DEFAULT_SETTINGS.invertY,
       orderlyEnabled: typeof parsed.orderlyEnabled === "boolean" ? parsed.orderlyEnabled : DEFAULT_SETTINGS.orderlyEnabled,
+      haptics: typeof parsed.haptics === "boolean" ? parsed.haptics : DEFAULT_SETTINGS.haptics,
     };
   } catch {
     return { ...DEFAULT_SETTINGS };
@@ -213,7 +215,7 @@ const interaction = new Interaction(camera, scene, player, audioManager, level, 
 const nav = new NavGrid(level);
 const orderly = new Orderly(scene, nav);
 orderly.onCatch = catchPlayer;
-orderly.onHuntStart = () => audioManager.playSpottedStinger?.();
+orderly.onHuntStart = () => { audioManager.playSpottedStinger?.(); haptic('warning'); };
 orderly.onInspectArrive = () => audioManager.playLockerRattle?.();
 orderly.onStep = () => {
   const dx = orderly.position.x - camera.position.x, dz = orderly.position.z - camera.position.z;
@@ -392,6 +394,8 @@ function startGame({ lockPointer = true, intro = true } = {}) {
   gameState.mode = "playing";
   stats.totalRuns += 1;
   saveStats();
+  // Seen once in the menu is enough.
+  if (soundHint && !soundHint.hidden) rememberSoundHint();
   // Called from the "Spielen" tap, which is also the gesture iOS needs before it plays audio.
   audioManager.init();
   audioManager.context.resume().catch(() => {});
@@ -437,6 +441,18 @@ function closeInfo() {
   for (const el of [controlsOverlay, creditsOverlay]) uiSet(el, 'style.display', 'none');
   uiSet(menuOverlay, 'style.display', 'flex');
 }
+
+// iPhone and iPad: Web Audio follows the silent mode, so a one-time hint explains a silent game.
+const SOUND_HINT_KEY = "hospitalGame.soundHintSeen";
+const soundHint = document.getElementById("sound-hint");
+function rememberSoundHint() {
+  if (soundHint) soundHint.hidden = true;
+  try { localStorage.setItem(SOUND_HINT_KEY, "1"); } catch { /* storage blocked */ }
+}
+try {
+  if (soundHint && (isIOS() || nativeApp) && localStorage.getItem(SOUND_HINT_KEY) !== "1") soundHint.hidden = false;
+} catch { /* storage blocked: no hint */ }
+document.getElementById("sound-hint-ok")?.addEventListener("click", rememberSoundHint);
 
 document.getElementById("menu-play")?.addEventListener("click", () => startGame());
 document.getElementById("menu-settings")?.addEventListener("click", () => openSettings("menu"));
@@ -501,6 +517,15 @@ ui.sensitivitySlider?.addEventListener("input", () => {
 });
 ui.invertYCheckbox?.addEventListener("change", () => {
   gameState.settings.invertY = ui.invertYCheckbox.checked;
+  saveSettings();
+});
+const hapticsCheckbox = document.getElementById("haptics-checkbox");
+setHapticsEnabled(gameState.settings.haptics);
+if (hapticsCheckbox) hapticsCheckbox.checked = gameState.settings.haptics;
+hapticsCheckbox?.addEventListener("change", () => {
+  gameState.settings.haptics = hapticsCheckbox.checked;
+  setHapticsEnabled(gameState.settings.haptics);
+  if (hapticsCheckbox.checked) haptic('medium');
   saveSettings();
 });
 if (ui.exploreCheckbox) ui.exploreCheckbox.checked = !gameState.settings.orderlyEnabled;
@@ -966,6 +991,8 @@ function updateHeartbeat(dt) {
   if (threat < 0.12 || heartbeatTimer > 0) return;
   heartbeatTimer = 1.15 - threat * 0.72;
   audioManager.playHeartbeat(0.12 + threat * 0.5);
+  // In the app the pulse is also felt, but only once he is really close.
+  if (threat >= 0.45) haptic('heartbeat');
 }
 
 function updateThreatEye() {
@@ -989,6 +1016,7 @@ function catchPlayer() {
   catchTimer = 0;
   player.clearInput();
   audioManager.playCaught?.();
+  haptic('heavy');
   uiSet(ui.prompt, 'style.display', 'none');
   if (catchOverlay) {
     catchOverlay.className = "grab";
