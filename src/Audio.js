@@ -17,7 +17,7 @@ export class AudioManager {
     this.initialized = true;
 
     if (this.context.state === 'suspended') {
-      this.context.resume();
+      this.context.resume().catch(() => {});
     }
 
     // Master gain for mute/volume control
@@ -75,7 +75,9 @@ export class AudioManager {
       
       const delay = 12000 + Math.random() * 25000;
       setTimeout(() => {
-        if (!this.initialized || this.muted) {
+        // While paused or in the background the context is suspended; sounds queued then would all
+        // play at once on resume, so skip them.
+        if (!this.initialized || this.muted || this.context.state !== 'running') {
           playRandom();
           return;
         }

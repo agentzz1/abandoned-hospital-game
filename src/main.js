@@ -288,17 +288,52 @@ let presenceTimer = 45 + Math.random() * 45;
 // iOS Safari only unlocks audio on some gesture types (touchend, click), so keep trying on each
 // kind of gesture until the context is actually running.
 const UNLOCK_EVENTS = ["pointerdown", "pointerup", "touchend", "click", "keydown"];
-const unlockAudio = () => {
+let audioUnlockArmed = false;
+function armAudioUnlock() {
+  if (audioUnlockArmed) return;
+  audioUnlockArmed = true;
+  for (const type of UNLOCK_EVENTS) window.addEventListener(type, unlockAudio, true);
+}
+function disarmAudioUnlock() {
+  audioUnlockArmed = false;
+  for (const type of UNLOCK_EVENTS) window.removeEventListener(type, unlockAudio, true);
+}
+function unlockAudio() {
   if (gameState.mode === "paused") return;
   const ctx = audioManager.context;
-  const done = () => {
-    if (ctx.state !== "running") return;
-    for (const type of UNLOCK_EVENTS) window.removeEventListener(type, unlockAudio, true);
-  };
-  if (ctx.state === "running") { done(); return; }
-  ctx.resume().then(done, () => {});
-};
-for (const type of UNLOCK_EVENTS) window.addEventListener(type, unlockAudio, true);
+  if (ctx.state === "running") { disarmAudioUnlock(); return; }
+  ctx.resume().then(() => { if (ctx.state === "running") disarmAudioUnlock(); }, () => {});
+}
+armAudioUnlock();
+// A phone call, Siri, an alarm or the app going to the background can stop the audio later on
+// ("interrupted" or "suspended" on iOS). Listen for the next tap again so the sound comes back.
+audioManager.context.addEventListener?.("statechange", () => {
+  const state = audioManager.context.state;
+  if (state !== "running" && state !== "closed" && gameState.mode !== "paused") armAudioUnlock();
+});
+
+// Leaving the game (home gesture, app switcher, another tab, screen lock) pauses the run and
+// silences it. Coming back never resumes by itself: "Fortsetzen" is a deliberate tap, which iOS
+// also wants to see before it plays audio again.
+function goBackground() {
+  player.clearInput();
+  touchControls.releaseAll();
+  if (gameState.mode === "playing") pauseGame();
+  else audioManager.context.suspend().catch(() => {});
+}
+function comeBack() {
+  if (gameState.mode === "paused") return;
+  audioManager.context.resume().catch(() => {});
+  armAudioUnlock();
+}
+document.addEventListener("visibilitychange", () => { if (document.hidden) goBackground(); else comeBack(); });
+window.addEventListener("pagehide", goBackground);
+window.addEventListener("pageshow", (event) => { if (event.persisted) comeBack(); });
+// The iOS app shell (Capacitor) fires these on the document when the app leaves and re-enters the foreground.
+document.addEventListener("pause", goBackground);
+document.addEventListener("resume", comeBack);
+// On phones and tablets, Control Center, Notification Center or a call banner only take the focus away.
+window.addEventListener("blur", () => { if (touchControls.enabled) goBackground(); });
 
 // Auto-start
 setTimeout(() => {
