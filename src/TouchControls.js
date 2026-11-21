@@ -51,6 +51,7 @@ export class TouchControls {
     this.useBtn = root.querySelector('#touch-use');
     this.lightBtn = root.querySelector('#touch-light');
     this.crouchBtn = root.querySelector('#touch-crouch');
+    this.pauseBtn = root.querySelector('#touch-pause');
 
     const joyZone = root.querySelector('#touch-joy-zone');
     const lookZone = root.querySelector('#touch-look-zone');
@@ -65,7 +66,7 @@ export class TouchControls {
     this._tap(this.crouchBtn, () => {
       if (this.gameState.mode === 'playing') this.player.isCrouched = !this.player.isCrouched;
     });
-    this._tap(root.querySelector('#touch-pause'), () => this.onPause());
+    this._tap(this.pauseBtn, () => this.onPause());
   }
 
   _tap(el, fn) {
@@ -129,6 +130,14 @@ export class TouchControls {
     }
   }
 
+  // Lets go of the stick and the look drag, e.g. when the app goes to the background mid-swipe and
+  // iOS never delivers the pointerup.
+  releaseAll() {
+    if (!this.enabled) return;
+    if (this.joyPointer !== null) this._end({ pointerId: this.joyPointer });
+    if (this.lookPointer !== null) this._end({ pointerId: this.lookPointer });
+  }
+
   _setKnob(dx, dy) {
     this.knob.style.transform = `translate(${dx}px, ${dy}px)`;
   }
@@ -136,7 +145,13 @@ export class TouchControls {
   // Called every frame to mirror game state on the buttons.
   update({ canUse }) {
     if (!this.enabled) return;
-    this.root.classList.toggle('inactive', this.gameState.mode !== 'playing');
+    const mode = this.gameState.mode;
+    this.root.classList.toggle('inactive', mode !== 'playing');
+    // The pause button only shows while it does something: during play and to resume from the pause menu.
+    this.pauseBtn.classList.toggle('off', mode !== 'playing' && mode !== 'paused');
+    // Inside a locker the same button gets the player out again.
+    const useLabel = this.player.hidden ? 'Raus' : 'Benutzen';
+    if (this.useBtn.textContent !== useLabel) this.useBtn.textContent = useLabel;
     this.useBtn.classList.toggle('ready', !!canUse);
     this.lightBtn.classList.toggle('on', !!this.gameState.flashlightOn);
     this.crouchBtn.classList.toggle('on', !!this.player.isCrouched);

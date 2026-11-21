@@ -238,6 +238,7 @@ export class Interaction {
   openNote(text) {
     this.audioManager.playRustle();
     this.gameState.mode = 'note';
+    this.noteOpenedAt = performance.now();
     this.gameState.notesRead = (this.gameState.notesRead || 0) + 1;
     if (this.ui.noteOverlay) this.ui.noteOverlay.style.display = 'flex';
     if (this.ui.noteText) this.ui.noteText.textContent = text.replace('{KEYS}', this.noteKeyHints);

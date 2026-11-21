@@ -320,6 +320,10 @@ if (introOverlay) {
 window.addEventListener("resize", onWindowResize, false);
 document.addEventListener("keydown", onGlobalKeyDown, true);
 ui.closeNote?.addEventListener("click", () => interaction.closeNote());
+// A tap on the dimmed background also closes a note; the short delay keeps the tap that opened it from closing it again.
+ui.noteOverlay?.addEventListener("click", (event) => {
+  if (event.target === ui.noteOverlay && performance.now() - (interaction.noteOpenedAt || 0) > 400) interaction.closeNote();
+});
 ui.restartButton?.addEventListener("click", restartGame);
 ui.resumeButton?.addEventListener("click", resumeGame);
 ui.pauseRestartButton?.addEventListener("click", restartGame);
