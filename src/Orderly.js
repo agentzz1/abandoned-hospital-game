@@ -215,9 +215,9 @@ class MinHeap {
 export const PATROL_POINTS = [
   { x: 0, z: -3, name: 'Eingangshalle' },
   { x: -6.5, z: 2.5, name: 'Wartezimmer' },
-  { x: -7, z: -6, name: 'Suedflur West' },
+  { x: -7, z: -6, name: 'Südflur West' },
   { x: 6.5, z: -3, name: 'Lager' },
-  { x: 7, z: -6, name: 'Suedflur Ost' },
+  { x: 7, z: -6, name: 'Südflur Ost' },
   { x: 0, z: 4, name: 'Mittelgang' },
   { x: -7.5, z: 9.6, name: 'Aktenraum' },
   { x: 7, z: 10.5, name: 'OP' },

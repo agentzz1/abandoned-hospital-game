@@ -24,6 +24,8 @@ export class Interaction {
     this.currentInteractable = null;
     // Keyboard players see "E - ..."; on touch screens the Use button is the prompt.
     this.promptPrefix = 'E - ';
+    // Replaces {KEYS} in note texts, so the first note names the controls of the current device.
+    this.noteKeyHints = 'F Lampe   C ducken   E Spind';
     this.interactables = [];
     this._needsRefresh = true;
   }
@@ -201,7 +203,7 @@ export class Interaction {
         const collected = this.level.keys ? this.level.keys.filter(k => k.userData.collected).length : 0;
         const total = this.level.keys ? this.level.keys.length : 0;
         this.gameState.message = collected < total
-          ? `Noch ${total - collected} Schluessel fehlen.`
+          ? (total - collected === 1 ? 'Noch 1 Schlüssel fehlt.' : `Noch ${total - collected} Schlüssel fehlen.`)
           : 'Der Ausgang ist verschlossen.';
 
         this.audioManager.playLockedDoorRattle();
@@ -238,7 +240,7 @@ export class Interaction {
     this.gameState.mode = 'note';
     this.gameState.notesRead = (this.gameState.notesRead || 0) + 1;
     if (this.ui.noteOverlay) this.ui.noteOverlay.style.display = 'flex';
-    if (this.ui.noteText) this.ui.noteText.textContent = text;
+    if (this.ui.noteText) this.ui.noteText.textContent = text.replace('{KEYS}', this.noteKeyHints);
     if (this.ui.prompt) this.ui.prompt.style.display = 'none';
     if (this.ui.instructions) this.ui.instructions.style.display = 'none';
     if (this.ui.crosshair) this.ui.crosshair.style.display = 'none';
@@ -307,8 +309,8 @@ export class Interaction {
       this.gameState.hasKey = true;
       this.gameState.exitUnlocked = true;
       this.gameState.objective = 'escape';
-      this.gameState.message = 'Alle Schluessel gefunden! Gehe zum Ausgang.';
-      if (window.showNotification) window.showNotification('Alle Schluessel! Zum Ausgang!');
+      this.gameState.message = 'Alle Schlüssel gefunden! Geh zum Ausgang.';
+      if (window.showNotification) window.showNotification('Alle Schlüssel! Zum Ausgang!');
     } else {
       this.gameState.message = `${keyData.userData.name} gefunden. (${collected}/${total})`;
     }
@@ -325,11 +327,11 @@ export class Interaction {
     if (data.isOpen) {
       door.position.set(data.openPosition.x, data.openPosition.y, data.openPosition.z);
       door.rotation.y = Math.PI / 2;
-      data.prompt = 'Tuer schliessen';
+      data.prompt = 'Tür schließen';
     } else {
       door.position.set(data.closedPosition.x, data.closedPosition.y, data.closedPosition.z);
       door.rotation.y = 0;
-      data.prompt = 'Tuer oeffnen';
+      data.prompt = 'Tür öffnen';
     }
 
     this.player?.refreshColliders?.();

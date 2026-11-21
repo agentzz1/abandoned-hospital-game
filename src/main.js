@@ -122,7 +122,7 @@ const gameState = {
   exitUnlocked: false,
   exitOpen: false,
   win: false,
-  message: "Erkunde das Krankenhaus und finde die Schluessel.",
+  message: "Erkunde das Krankenhaus und finde die Schlüssel.",
   elapsed: 0,
   notesRead: 0,
   jumpscareTimer: 15,
@@ -204,6 +204,7 @@ function enableTouchMode() {
   if (touchControls.enabled) return;
   touchControls.enable();
   interaction.promptPrefix = "";
+  interaction.noteKeyHints = "Lampe: Licht an/aus   Ducken: leise   Benutzen: Spind";
   uiSet(ui.prompt, 'textContent', '');
 }
 if (prefersTouch) enableTouchMode();
@@ -582,16 +583,16 @@ function updateObjectivePips() {
 
 function describeObjective(blueCollected, orangeCollected) {
   if (gameState.win) return "Du bist entkommen!";
-  if (blueCollected && orangeCollected) return "Oeffne den Ausgang im Nordkorridor";
-  if (blueCollected) return "Finde den orangen Schluessel";
-  if (orangeCollected) return "Finde den blauen Schluessel";
-  return "Finde die Schluessel";
+  if (blueCollected && orangeCollected) return "Öffne den Ausgang im Nordkorridor";
+  if (blueCollected) return "Finde den orangen Schlüssel";
+  if (orangeCollected) return "Finde den blauen Schlüssel";
+  return "Finde die Schlüssel";
 }
 
 function describeStatus() {
   const total = level.keys ? level.keys.length : 2;
   const collected = gameState.keysCollected ? gameState.keysCollected.length : 0;
-  const keyStatus = collected >= total ? "Alle Schluessel" : collected + "/" + total + " Schluessel";
+  const keyStatus = collected >= total ? "Alle Schlüssel" : collected + "/" + total + " Schlüssel";
   const exitStatus = level.exitDoor?.userData?.isOpen ? "Ausgang offen" : level.exitDoor?.userData?.locked ? "Ausgang zu" : "Ausgang entriegelt";
   return gameState.message + " | " + keyStatus + " | " + exitStatus;
 }
@@ -601,18 +602,18 @@ function updateCompass() {
   if (gameState.win) { window._compassAngle = 0; window._compassLabel = "✓"; window._compassPhase = "exit"; return; }
   if (!gameState.notesRead && level.notePosition) {
     targetX = level.notePosition.x; targetZ = level.notePosition.z;
-    label = "Notiz (" + Math.round(Math.sqrt((targetX-camera.position.x)**2 + (targetZ-camera.position.z)**2)) + "m)";
+    label = "Notiz · " + Math.round(Math.sqrt((targetX-camera.position.x)**2 + (targetZ-camera.position.z)**2)) + " m";
     phase = "note";
   } else if (level.keys && !gameState.hasKey) {
     const next = level.keys.find(k => !k.userData.collected);
     if (next) {
       targetX = next.position.x; targetZ = next.position.z;
-      label = next.userData.name + " (" + Math.round(Math.sqrt((targetX-camera.position.x)**2 + (targetZ-camera.position.z)**2)) + "m)";
+      label = next.userData.name + " · " + Math.round(Math.sqrt((targetX-camera.position.x)**2 + (targetZ-camera.position.z)**2)) + " m";
       phase = next.userData.id === "key2" ? "orange" : "blue";
     }
   } else if (gameState.hasKey && level.exitDoor) {
     targetX = level.exitDoor.position.x; targetZ = level.exitDoor.position.z;
-    label = "Ausgang (" + Math.round(Math.sqrt((targetX-camera.position.x)**2 + (targetZ-camera.position.z)**2)) + "m)";
+    label = "Ausgang · " + Math.round(Math.sqrt((targetX-camera.position.x)**2 + (targetZ-camera.position.z)**2)) + " m";
     phase = "exit";
   }
   if (targetX != null) {
@@ -719,7 +720,7 @@ function updateOrderly(dt) {
   updateHeartbeat(dt);
   if (wasDormant && orderly.state !== "dormant") {
     audioManager.playDistantReaction?.(orderly.position);
-    showNotification("Irgendwo faellt eine Tuer ins Schloss.");
+    showNotification("Irgendwo fällt eine Tür ins Schloss.");
   }
 }
 

@@ -102,8 +102,8 @@ export class Level {
 
     // ========== KEYS ==========
     // Distinct silhouettes + glyphs on top of color so colorblind players can tell keys apart.
-    this._key(0x44aaff, -6, 1.2, 9, "key1", "Bluer Schluessel", "I", "ring");
-    this._key(0xff8844, 6, 1.2, -2, "key2", "Oranger Schluessel", "II", "cross");
+    this._key(0x44aaff, -6, 1.2, 9, "key1", "Blauer Schlüssel", "I", "ring");
+    this._key(0xff8844, 6, 1.2, -2, "key2", "Oranger Schlüssel", "II", "cross");
 
     // ========== LOCKERS ==========
     // Hiding spots, each against a wall with its door facing into the room.
@@ -129,7 +129,7 @@ export class Level {
     note.position.set(0, 1.5, -6.83); note.rotation.y = 0; note.receiveShadow = true;
     this.notePosition = note.position;
     note.userData = { type: "note", prompt: "Notiz lesen",
-      text: "Wer das findet:\n\nDer Waerter macht noch immer seine Runden.\nEr hoert dich, wenn du rennst.\nEr sieht dein Licht von weitem. Mach es aus, wenn er nah ist.\nSieht er dich: lauf, brich den Blickkontakt, versteck dich in einem Spind.\n\nBLAU = Aktenraum (oben links)\nORANGE = Lager (unten rechts)\nAusgang = Norden, den Gang hoch\n\nF Lampe   C ducken   E Spind"
+      text: "Wer das findet:\n\nDer Wärter macht noch immer seine Runden.\nEr hört dich, wenn du rennst.\nEr sieht dein Licht von weitem. Mach es aus, wenn er nah ist.\nSieht er dich: lauf, brich den Blickkontakt, versteck dich in einem Spind.\n\nBLAU = Aktenraum (oben links)\nORANGE = Lager (unten rechts)\nAusgang = Norden, den Gang hoch\n\n{KEYS}"
     };
     this.scene.add(note);
 
@@ -140,7 +140,7 @@ export class Level {
     );
     dutyLog.position.set(8, 1.5, -4.83); dutyLog.rotation.y = 0; dutyLog.receiveShadow = true;
     dutyLog.userData = { type: "note", id: "note_dienstbuch", prompt: "Dienstbuch lesen",
-      text: "Dienstbuch - Station 3\n\n03.11: Inventur abgeschlossen, Bestand OK.\n05.11: Ungewoehnliche Geraeusche aus Zimmer 4 gemeldet, niemand dort.\n06.11: Patient in Akte 12 seit zwei Tagen nicht gesehen.\n07.11: Habe das Licht im Lager noch einmal kontrolliert, es fl"
+      text: "Dienstbuch - Station 3\n\n03.11: Inventur abgeschlossen, Bestand OK.\n05.11: Ungewöhnliche Geräusche aus Zimmer 4 gemeldet, niemand dort.\n06.11: Patient in Akte 12 seit zwei Tagen nicht gesehen.\n07.11: Habe das Licht im Lager noch einmal kontrolliert, es fl"
     };
     this.scene.add(dutyLog);
 
@@ -583,7 +583,7 @@ export class Level {
   unlockExit() {
     if (!this.exitDoor) return;
     const d = this.exitDoor.userData;
-    d.locked = false; d.prompt = "Ausgang oeffnen";
+    d.locked = false; d.prompt = "Ausgang öffnen";
     if (this.exitDoor.material.emissive) this.exitDoor.material.emissive.setHex(0x17201a);
     if (!this.exitLight) {
       this.exitLight = new THREE.PointLight(0x66ffaa, 2.5, 7);
