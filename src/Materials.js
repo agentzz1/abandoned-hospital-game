@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { appleWebKitVersion } from './Platform.js';
 
 // Photo-scanned CC0 textures from Poly Haven (polyhaven.com), in public/textures/.
 // "hi" is 1024 px colour and normal maps for desktops, "lo" is 512 px for phones.
@@ -19,8 +20,12 @@ const FALLBACK = {
   metal: 0x6e7270, wood: 0x5a4636, locker: 0x3e4a40,
 };
 
-// ImageBitmap decoding runs off the main thread; older Safari lacks it, so fall back to <img>.
-const canDecodeOffThread = typeof createImageBitmap === 'function' && typeof OffscreenCanvas !== 'undefined';
+// ImageBitmap decoding runs off the main thread, but WebKit before 17 (iOS 16, Safari 16) handles the
+// imageOrientation option unreliably, which would leave textures upside down. There, and in browsers
+// without createImageBitmap, plain <img> decoding is used. The version comes from the user agent,
+// which also works inside the iOS app's WKWebView.
+const webkitVersion = appleWebKitVersion();
+const canDecodeOffThread = typeof createImageBitmap === 'function' && (Number.isNaN(webkitVersion) || webkitVersion >= 17);
 
 function loadTexture(url) {
   return new Promise(resolve => {
