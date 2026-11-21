@@ -43,7 +43,7 @@ const ChromaticAberrationShader = {
 };
 
 export class PostFX {
-  constructor(renderer, scene, camera, width, height, { maxPixelRatio = 1.5, startPixelRatio } = {}) {
+  constructor(renderer, scene, camera, width, height, { maxPixelRatio = 1.5, startPixelRatio, minPixelRatio = 0.5 } = {}) {
     this.renderer = renderer;
     this.composer = new EffectComposer(renderer);
     this.composer.setSize(width, height);
@@ -73,10 +73,19 @@ export class PostFX {
     // Adaptive resolution: when frames get slow, render fewer pixels instead of
     // dropping the look. Steps back up when there is headroom again.
     this.maxPixelRatio = Math.min(window.devicePixelRatio || 1, maxPixelRatio);
-    this.pixelRatio = Math.min(this.maxPixelRatio, startPixelRatio ?? this.maxPixelRatio);
-    this.minPixelRatio = 0.5;
+    this.minPixelRatio = Math.min(minPixelRatio, this.maxPixelRatio);
+    this.pixelRatio = Math.max(this.minPixelRatio, Math.min(this.maxPixelRatio, startPixelRatio ?? this.maxPixelRatio));
     this._frameSamples = 0;
     this._frameTimeSum = 0;
+    this._windows = 0;
+    // Steps down still being judged: { from, before, steps } (ratio and average frame time before them).
+    this._trial = null;
+    // Lower bound learned from a step down that did not help, valid until window _floorUntil.
+    this._floor = 0;
+    this._floorUntil = 0;
+    // Upper bound learned from a step down that did help, so it does not climb straight back.
+    this._ceiling = Infinity;
+    this._ceilingUntil = 0;
     this._applyPixelRatio();
   }
 
@@ -85,22 +94,65 @@ export class PostFX {
     this.composer.setPixelRatio(this.pixelRatio);
   }
 
+  _setPixelRatio(ratio) {
+    if (ratio === this.pixelRatio) return;
+    this.pixelRatio = ratio;
+    this._applyPixelRatio();
+  }
+
+  _resetWindow() {
+    this._frameSamples = 0;
+    this._frameTimeSum = 0;
+  }
+
+  // Judges the average frame time over windows of 40 frames. A frame-rate cap looks exactly like
+  // an overloaded GPU (iOS Low Power Mode holds requestAnimationFrame at 30 fps however little is
+  // drawn), so stepping down is a trial: if frames are not clearly faster after up to two steps
+  // (vsync can hide the gain of the first one), the old resolution comes back and stays for about
+  // 90 windows instead of sliding down to the floor.
   _adapt(delta) {
     if (delta <= 0) return;
-    this._frameTimeSum += delta;
+    this._frameTimeSum += Math.min(delta, 0.1);
     this._frameSamples++;
     if (this._frameSamples < 40) return;
     const avg = this._frameTimeSum / this._frameSamples;
-    this._frameSamples = 0;
-    this._frameTimeSum = 0;
-    let next = this.pixelRatio;
-    // Already at the lowest resolution and still slow: let the game drop its costliest extras.
-    if (avg > 1 / 45 && this.pixelRatio <= this.minPixelRatio) this.onStruggle?.();
-    if (avg > 1 / 45) next = Math.max(this.minPixelRatio, this.pixelRatio - 0.25);
-    else if (avg < 1 / 58) next = Math.min(this.maxPixelRatio, this.pixelRatio + 0.125);
-    if (next !== this.pixelRatio) {
-      this.pixelRatio = next;
-      this._applyPixelRatio();
+    this._resetWindow();
+    this._windows++;
+
+    if (this._windows > this._floorUntil) this._floor = 0;
+    if (this._windows > this._ceilingUntil) this._ceiling = Infinity;
+    const floor = Math.max(this.minPixelRatio, this._floor);
+
+    if (this._trial) {
+      const trial = this._trial;
+      if (avg > trial.before * 0.85) {
+        if (trial.steps < 2 && this.pixelRatio > floor + 1e-6) {
+          trial.steps++;
+          this._setPixelRatio(Math.max(floor, this.pixelRatio - 0.25));
+          return;
+        }
+        this._trial = null;
+        this._floor = trial.from;
+        this._floorUntil = this._windows + 90;
+        this._setPixelRatio(trial.from);
+        return;
+      }
+      this._trial = null;
+      this._ceiling = trial.from;
+      this._ceilingUntil = this._windows + 45;
+    }
+
+    if (avg > 1 / 45) {
+      if (this.pixelRatio > floor + 1e-6) {
+        this._trial = { from: this.pixelRatio, before: avg, steps: 1 };
+        this._setPixelRatio(Math.max(floor, this.pixelRatio - 0.25));
+      } else if (this.pixelRatio <= this.minPixelRatio + 1e-6) {
+        // Already at the lowest resolution and still slow: let the game drop its costliest extras.
+        this.onStruggle?.();
+      }
+    } else if (avg < 1 / 58) {
+      const top = Math.min(this.maxPixelRatio, this._ceiling - 0.125);
+      if (this.pixelRatio < top - 1e-6) this._setPixelRatio(Math.min(top, this.pixelRatio + 0.125));
     }
   }
 
@@ -109,11 +161,13 @@ export class PostFX {
     this.bloomPass.setSize(width, height);
   }
 
-  render(delta) {
+  // adapt = false for frames drawn at a deliberately reduced rate (menus), which say nothing about load.
+  render(delta, adapt = true) {
     this.time += delta;
     this.filmPass.uniforms["time"].value = this.time;
     this.chromaticPass.uniforms["amount"].value = 0.002 + Math.sin(this.time * 0.5) * 0.001;
-    this._adapt(delta);
+    if (adapt) this._adapt(delta);
+    else this._resetWindow();
     this.composer.render();
   }
 }

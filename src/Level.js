@@ -18,6 +18,8 @@ export class Level {
     this.lights = [];
     this.key = null;
     this.keys = [];
+    // One glow light per key, kept in the scene even after pickup (see _key).
+    this.keyLights = [];
     this.exitDoor = null;
     this.volumetricMeshes = [];
     this._build();
@@ -398,11 +400,17 @@ export class Level {
     const t1 = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.05, 0.05), mat); t1.position.set(0.28, -0.025, 0); key.add(t1);
     const t2 = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.05, 0.05), mat); t2.position.set(0.36, 0.025, 0); key.add(t2);
     key.position.set(x, y, z); key.scale.setScalar(2); key.castShadow = true;
-    const light = new THREE.PointLight(color, 3.0, 8); light.position.set(0, 0.3, 0); key.add(light);
+    // The glow light lives in the scene rather than under the key: hiding the key on pickup would
+    // change the number of lights, and three.js then recompiles every lit shader, a visible freeze on
+    // phones. A picked-up key's light is just turned down (and later reused for the exit).
+    const light = new THREE.PointLight(color, 3.0, 8);
+    light.position.set(x, y + 0.6, z);
+    this.scene.add(light);
+    this.keyLights.push(light);
     const label = this._glyphSprite(glyph);
     label.position.set(0, 0.55, 0);
     key.add(label);
-    key.userData = { type: "key", id, name, glyph, prompt: name + " aufheben", collected: false, basePosition: { x, y, z } };
+    key.userData = { type: "key", id, name, glyph, color, prompt: name + " aufheben", collected: false, basePosition: { x, y, z } };
     this.scene.add(key); this.keys.push(key); if (!this.key) this.key = key;
   }
 
@@ -576,6 +584,7 @@ export class Level {
     const k = this.keys.find(k => k.userData.id === id && !k.userData.collected);
     if (!k) return false;
     k.userData.collected = true; k.visible = false;
+    this.keyLights[this.keys.indexOf(k)].intensity = 0;
     if (this.keys.every(k => k.userData.collected)) this.unlockExit();
     return true;
   }
@@ -586,11 +595,15 @@ export class Level {
     d.locked = false; d.prompt = "Ausgang öffnen";
     if (this.exitDoor.material.emissive) this.exitDoor.material.emissive.setHex(0x17201a);
     if (!this.exitLight) {
-      this.exitLight = new THREE.PointLight(0x66ffaa, 2.5, 7);
+      // Every key is collected by now, so their dark glow lights are free: one becomes the exit's
+      // green light, which keeps the light count (and so the compiled shaders) unchanged.
+      this.exitLight = this.keyLights[this.keyLights.length - 1];
+      this.exitLight.color.setHex(0x66ffaa);
+      this.exitLight.distance = 7;
       this.exitLight.position.copy(this.exitDoor.position);
       this.exitLight.position.y += 0.4;
-      this.scene.add(this.exitLight);
     }
+    this.exitLight.intensity = 2.5;
   }
 
   openExitDoor() {
@@ -629,10 +642,13 @@ export class Level {
   }
 
   reset() {
-    for (const k of this.keys) {
+    this.keys.forEach((k, i) => {
       k.visible = true; k.userData.collected = false;
       const b = k.userData.basePosition; k.position.set(b.x, b.y, b.z);
-    }
+      const light = this.keyLights[i];
+      light.color.setHex(k.userData.color); light.intensity = 3.0; light.distance = 8;
+      light.position.set(b.x, b.y + 0.6, b.z);
+    });
     if (this.exitDoor) {
       const d = this.exitDoor.userData;
       d.locked = true; d.isOpen = false; d.blocksMovement = true;
@@ -643,18 +659,17 @@ export class Level {
       this.navDirty = true;
       if (this.exitDoor.material.emissive) this.exitDoor.material.emissive.setHex(0);
     }
-    if (this.exitLight) {
-      this.scene.remove(this.exitLight);
-      this.exitLight = null;
-    }
+    this.exitLight = null;
   }
 
   update(delta, time) {
-    // Animate keys
-    for (const k of this.keys) {
+    // Animate keys; each glow light follows its key (0.3 above it in the key's doubled scale).
+    for (let i = 0; i < this.keys.length; i++) {
+      const k = this.keys[i];
       if (!k.userData.collected) {
         k.rotation.y = 0.7 + time * 1.8;
         k.position.y = k.userData.basePosition.y + Math.sin(time * 2.4 + k.userData.id.charCodeAt(0)) * 0.06;
+        this.keyLights[i].position.set(k.position.x, k.position.y + 0.6, k.position.z);
       }
     }
 

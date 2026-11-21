@@ -160,17 +160,26 @@ if ("outputColorSpace" in renderer) {
 }
 document.body.appendChild(renderer.domElement);
 
-// Post-processing pipeline
+// Post-processing pipeline. Phones start at 1 and step up to 1.5 while frames stay fast; below 0.75
+// the 3x Retina panel would only show blur.
 const postFX = new PostFX(renderer, scene, camera, window.innerWidth, window.innerHeight,
-  prefersTouch ? { maxPixelRatio: 1.25, startPixelRatio: 1 } : {});
+  prefersTouch ? { maxPixelRatio: 1.5, startPixelRatio: 1, minPixelRatio: 0.75 } : {});
 
-// A dim, blurred room reflection gives wet floors and metal believable highlights; computed once.
-{
+// A dim, blurred room reflection gives wet floors and metal believable highlights. Rendered once,
+// and again after a lost WebGL context comes back (its render target is then black).
+let environmentTarget = null;
+function setupEnvironment({ contextWasLost = false } = {}) {
   const pmrem = new THREE.PMREMGenerator(renderer);
-  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  const room = new RoomEnvironment();
+  // After a context loss the old target's GL objects are already gone; deleting them again only warns.
+  if (!contextWasLost) environmentTarget?.dispose();
+  environmentTarget = pmrem.fromScene(room, 0.04);
+  scene.environment = environmentTarget.texture;
   scene.environmentIntensity = 0.12;
+  room.dispose?.();
   pmrem.dispose();
 }
+setupEnvironment();
 
 const audioManager = new AudioManager(camera, scene);
 audioManager.setVolume(gameState.settings.volume);
@@ -396,7 +405,39 @@ let lastPipBlueCollected = null;
 let lastPipOrangeCollected = null;
 let lastObjectivePipsText = null;
 
+// iOS drops the WebGL context of apps in the background or under memory pressure. three.js restores
+// its own resources; the environment map and the static moonlight shadow have to be drawn again.
+const gfxLostOverlay = document.getElementById("gfx-lost-overlay");
+let contextRestoreTimer = 0;
+renderer.domElement.addEventListener("webglcontextlost", () => {
+  console.warn("[webgl] context lost");
+  if (gameState.mode === "playing") pauseGame();
+  watchContextRestore();
+});
+renderer.domElement.addEventListener("webglcontextrestored", () => {
+  console.info("[webgl] context restored");
+  clearTimeout(contextRestoreTimer);
+  uiSet(gfxLostOverlay, 'style.display', 'none');
+  setupEnvironment({ contextWasLost: true });
+  level.sunLight.shadow.needsUpdate = true;
+});
+// Browsers restore the context once the page is visible; if that does not happen within a few
+// seconds, offer a reload instead of a frozen picture.
+function watchContextRestore() {
+  clearTimeout(contextRestoreTimer);
+  if (document.hidden) return;
+  contextRestoreTimer = setTimeout(() => {
+    if (renderer.getContext().isContextLost()) uiSet(gfxLostOverlay, 'style.display', 'flex');
+  }, 3000);
+}
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && renderer.getContext().isContextLost()) watchContextRestore();
+});
+document.getElementById("gfx-reload-button")?.addEventListener("click", restartGame);
+
 refreshUi();
+// Compile every shader now, behind the loading screen, rather than stalling the first frames.
+renderer.compile(scene, camera);
 requestAnimationFrame(frame);
 
 function onWindowResize() {
@@ -842,9 +883,16 @@ function respawnAfterCatch() {
   refreshUi();
 }
 
-function renderFrame(deltaSeconds = 1 / 60) {
+function renderFrame(deltaSeconds = 1 / 60, adapt = true) {
   if (level.shadowsDirty) { level.sunLight.shadow.needsUpdate = true; level.shadowsDirty = false; }
-  postFX.render(deltaSeconds);
+  postFX.render(deltaSeconds, adapt);
+}
+
+// Behind the pause, note and win cards the scene is barely visible: drawing every 4th frame there
+// saves battery and heat on phones.
+function renderInterval() {
+  const mode = gameState.mode;
+  return mode === "paused" || mode === "note" || mode === "won" ? 4 : 1;
 }
 
 let loadingScreen = document.getElementById("loading");
@@ -856,13 +904,20 @@ function hideLoadingScreen() {
   setTimeout(() => el.remove(), 700);
 }
 
+let frameCount = 0;
+let skippedTime = 0;
 function frame(now) {
   // The first rAF timestamp can predate module init (texture generation takes a
   // while), which used to feed a large negative delta into the whole simulation.
   const deltaSeconds = Math.max(0, Math.min(0.05, (now - lastFrameTime) / 1000));
   lastFrameTime = now;
   stepSimulation(deltaSeconds);
-  renderFrame(deltaSeconds);
+  const every = renderInterval();
+  skippedTime += deltaSeconds;
+  if (++frameCount % every === 0 || frameCount === 1) {
+    renderFrame(skippedTime, every === 1);
+    skippedTime = 0;
+  }
   hideLoadingScreen();
   requestAnimationFrame(frame);
 }
@@ -998,7 +1053,7 @@ window.sim = {
   }
 };
 
-window.game = { scene, camera, renderer, player, level, interaction, gameState, audioManager, nav, orderly, catchPlayer };
+window.game = { scene, camera, renderer, postFX, player, level, interaction, gameState, audioManager, nav, orderly, catchPlayer };
 
 window.render_game_to_text = () => {
   const r = v => Math.round(v * 1000) / 1000;

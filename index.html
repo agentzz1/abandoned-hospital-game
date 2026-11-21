@@ -197,6 +197,13 @@
       #new-record-badge { display:none; margin-top:10px; padding:5px 12px; border-radius:999px; background:rgba(255,170,85,0.18); border:1px solid rgba(255,170,85,0.5); color:var(--accent); font-size:12px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; }
       #restart-button { background:linear-gradient(135deg,#1a3a2a,#0d1f18); color:var(--accent-green); box-shadow:0 10px 24px rgba(0,0,0,0.25); }
 
+      /* Graphics lost and not restored */
+      #gfx-lost-overlay { z-index:45; background:rgba(0,0,0,0.85); }
+      #gfx-lost-card { width:min(460px,100%); padding:26px; border:1px solid rgba(255,255,255,0.08); border-radius:22px; background:linear-gradient(180deg,rgba(15,18,24,0.97),rgba(8,10,14,0.98)); box-shadow:var(--shadow); }
+      #gfx-lost-card h2 { margin:0 0 10px; font-size:20px; color:var(--accent); }
+      #gfx-lost-card p { margin:0; font-size:14px; line-height:1.55; color:var(--muted); }
+      #gfx-reload-button { background:linear-gradient(135deg,#1a3a2a,#0d1f18); color:var(--accent-green); }
+
       /* Notification */
       #notification { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); padding:16px 24px; border:1px solid rgba(139,211,255,0.3); border-radius:16px; background:rgba(5,15,25,0.85); color:var(--accent); font-size:16px; font-weight:600; text-align:center; -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); box-shadow:var(--shadow),var(--glow-blue); display:none; z-index:20; }
 
@@ -479,6 +486,17 @@
           </div>
           <div class="action-row">
             <button id="settings-back-button" type="button">Zurück</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- The system reset the 3D graphics and did not give them back -->
+      <div id="gfx-lost-overlay" class="overlay">
+        <div id="gfx-lost-card" class="card">
+          <h2>Grafik unterbrochen</h2>
+          <p>Das System hat die 3D-Grafik des Spiels zurückgesetzt. Lade sie neu, um weiterzuspielen. Der aktuelle Lauf beginnt dabei von vorn.</p>
+          <div class="action-row">
+            <button id="gfx-reload-button" type="button">Grafik neu laden</button>
           </div>
         </div>
       </div>
