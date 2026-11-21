@@ -1,3 +1,4 @@
+import './fonts.css';
 import * as THREE from 'three';
 import { Player } from './Player.js';
 import { Level } from './Level.js';
