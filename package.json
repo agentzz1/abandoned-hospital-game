@@ -1,6 +1,6 @@
 {
-  "name": "webversion",
-  "version": "0.0.0",
+  "name": "verlassenes-krankenhaus",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {

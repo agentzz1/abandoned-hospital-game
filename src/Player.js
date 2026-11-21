@@ -188,18 +188,22 @@ export class Player {
     window.addEventListener('blur', () => this.clearInput());
   }
 
+  // Captures the mouse for looking around. Pointer lock can be refused (embedded frames, phones);
+  // arrow keys still work then.
+  requestLock() {
+    if (this.locked || document.body.classList.contains('touch')) return;
+    const canvas = document.querySelector('canvas');
+    try { (canvas || document.body).requestPointerLock()?.catch?.(() => {}); } catch { /* unsupported */ }
+  }
+
   _bindMouse() {
     const canvas = document.querySelector('canvas');
     const hint = document.getElementById('click-to-play');
-    // Pointer lock can be refused (embedded frames, phones); arrow keys still work then.
-    const lock = () => {
-      if (this.locked) return;
-      try { (canvas || document.body).requestPointerLock()?.catch?.(() => {}); } catch { /* unsupported */ }
-    };
     document.addEventListener('click', e => {
       if (document.body.classList.contains('touch')) return;
-      if (e.target.closest('#note-overlay, #win-overlay, #pause-overlay, #settings-overlay, #intro-overlay, button')) return;
-      lock();
+      if (!this._canControl()) return;
+      if (e.target.closest('.overlay, #intro-overlay, button, a')) return;
+      this.requestLock();
     });
     document.addEventListener('pointerlockchange', () => {
       this.locked = document.pointerLockElement === (canvas || document.body);

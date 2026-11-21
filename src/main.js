@@ -8,10 +8,22 @@ import { PostFX } from './PostFX.js';
 import { NavGrid, Orderly } from './Orderly.js';
 import { TouchControls } from './TouchControls.js';
 import { loadMaterials } from './Materials.js';
+import { isNativeApp } from './Native.js';
+import { isStandalone } from './Platform.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+// One line each at startup and after the first rendered frame; the iOS simulator smoke test looks for them.
+console.info('[krankenhaus] boot');
 
 // Phones and tablets: touch controls, lighter textures and a lower starting resolution.
 const prefersTouch = window.matchMedia?.('(pointer: coarse)').matches ?? false;
+// Inside the App Store build browser-only things (fullscreen, install tips) are hidden.
+const nativeApp = isNativeApp();
+document.body.classList.toggle('native', nativeApp);
+document.body.classList.toggle('standalone', isStandalone());
+const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';
+// Where the privacy and support pages are published; the iOS app opens these in Safari.
+const SITE_URL = 'https://agentzz1.github.io/abandoned-hospital-game/';
 
 const ui = {
   instructions: document.getElementById("instructions"),
@@ -115,7 +127,8 @@ function formatTime(ms) {
 }
 
 const gameState = {
-  mode: "playing",
+  // menu -> playing <-> paused / note / caught -> won
+  mode: "menu",
   objective: "find_keys",
   hasKey: false,
   keysCollected: [],
@@ -134,8 +147,6 @@ const gameState = {
 };
 
 const stats = loadStats();
-stats.totalRuns += 1;
-saveStats();
 
 // Let the loading screen paint before texture generation blocks the main thread.
 await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 0)));
@@ -148,7 +159,16 @@ const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerH
 // The flashlight and fill light are children of the camera; they only light the scene if the camera is in it.
 scene.add(camera);
 
-const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance", stencil: false, depth: true });
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance", stencil: false, depth: true });
+} catch (error) {
+  // No WebGL (e.g. iOS Lockdown Mode, a crashed GPU process): explain it instead of a blank screen,
+  // and stop here, since nothing below can run without it.
+  console.warn("[webgl] unavailable: " + (error?.message || error));
+  window.__krankenhausFatal?.("webgl");
+  await new Promise(() => {});
+}
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
@@ -212,6 +232,7 @@ const touchControls = new TouchControls({
 function enableTouchMode() {
   if (touchControls.enabled) return;
   touchControls.enable();
+  document.getElementById("menu-play")?.blur();
   interaction.promptPrefix = "";
   interaction.noteKeyHints = "Lampe: Licht an/aus   Ducken: leise   Benutzen: Spind";
   uiSet(ui.prompt, 'textContent', '');
@@ -344,22 +365,113 @@ document.addEventListener("resume", comeBack);
 // On phones and tablets, Control Center, Notification Center or a call banner only take the focus away.
 window.addEventListener("blur", () => { if (touchControls.enabled) goBackground(); });
 
-// Auto-start
-setTimeout(() => {
-  audioManager.init();
-  uiSet(ui.instructions, 'style.display', 'none');
-  uiSet(ui.crosshair, 'style.display', 'block');
-}, 100);
-
+// --- Title menu and the start of a run ---------------------------------------------------------
+const menuOverlay = document.getElementById("menu-overlay");
+const controlsOverlay = document.getElementById("controls-overlay");
+const creditsOverlay = document.getElementById("credits-overlay");
 const introOverlay = document.getElementById("intro-overlay");
-if (introOverlay) {
-  introOverlay.style.display = "flex";
-  setTimeout(() => {
-    introOverlay.style.opacity = "0";
-    introOverlay.style.transition = "opacity 1s";
-    setTimeout(() => { introOverlay.style.display = "none"; }, 1000);
-  }, 7000);
+// "Neu starten" and "Nochmal spielen" reload the page and go straight into the next run.
+const AUTOSTART_KEY = "hospitalGame.autostart";
+// The menu shows the corridor towards the exit, drifting slowly.
+const MENU_YAW = Math.PI;
+let settingsReturnTo = "pause";
+let introTimer = 0;
+
+function showMenu() {
+  gameState.mode = "menu";
+  document.body.classList.add("in-menu");
+  uiSet(menuOverlay, 'style.display', 'flex');
+  if (!touchControls.enabled) document.getElementById("menu-play")?.focus({ preventScroll: true });
 }
+
+function startGame({ lockPointer = true, intro = true } = {}) {
+  if (gameState.mode !== "menu") return;
+  for (const el of [menuOverlay, controlsOverlay, creditsOverlay, ui.settingsOverlay]) uiSet(el, 'style.display', 'none');
+  document.body.classList.remove("in-menu");
+  player.reset();
+  gameState.mode = "playing";
+  stats.totalRuns += 1;
+  saveStats();
+  // Called from the "Spielen" tap, which is also the gesture iOS needs before it plays audio.
+  audioManager.init();
+  audioManager.context.resume().catch(() => {});
+  if (lockPointer) player.requestLock();
+  if (intro) showIntro();
+  refreshUi();
+}
+
+// The control hints stay until the first touch or key press (or 9 s), not on a fixed timer.
+function showIntro() {
+  if (!introOverlay) return;
+  introOverlay.style.transition = "";
+  introOverlay.style.opacity = "1";
+  introOverlay.style.display = "flex";
+  const shownAt = performance.now();
+  const dismiss = () => {
+    if (performance.now() - shownAt < 500) return;
+    window.removeEventListener("pointerdown", dismiss, true);
+    window.removeEventListener("keydown", dismiss, true);
+    hideIntro();
+  };
+  window.addEventListener("pointerdown", dismiss, true);
+  window.addEventListener("keydown", dismiss, true);
+  clearTimeout(introTimer);
+  introTimer = setTimeout(hideIntro, 9000);
+}
+
+function hideIntro() {
+  clearTimeout(introTimer);
+  if (!introOverlay || introOverlay.style.display === "none" || introOverlay.style.opacity === "0") return;
+  introOverlay.style.transition = "opacity 0.6s";
+  introOverlay.style.opacity = "0";
+  setTimeout(() => { if (introOverlay.style.opacity === "0") introOverlay.style.display = "none"; }, 600);
+}
+
+function openInfo(overlay) {
+  uiSet(menuOverlay, 'style.display', 'none');
+  uiSet(overlay, 'style.display', 'flex');
+  overlay?.querySelector(".back-button")?.focus({ preventScroll: true });
+}
+
+function closeInfo() {
+  for (const el of [controlsOverlay, creditsOverlay]) uiSet(el, 'style.display', 'none');
+  uiSet(menuOverlay, 'style.display', 'flex');
+}
+
+document.getElementById("menu-play")?.addEventListener("click", () => startGame());
+document.getElementById("menu-settings")?.addEventListener("click", () => openSettings("menu"));
+document.getElementById("menu-controls")?.addEventListener("click", () => openInfo(controlsOverlay));
+document.getElementById("menu-credits")?.addEventListener("click", () => openInfo(creditsOverlay));
+for (const button of document.querySelectorAll(".info-overlay .back-button")) button.addEventListener("click", closeInfo);
+document.getElementById("pause-menu-button")?.addEventListener("click", () => window.location.reload());
+uiSet(document.getElementById("app-version"), 'textContent', APP_VERSION);
+// In the app, the privacy and support links leave for Safari instead of replacing the game.
+if (nativeApp) {
+  for (const link of document.querySelectorAll("a[data-site-link]")) link.href = new URL(link.getAttribute("href"), SITE_URL).href;
+}
+
+// Fullscreen: offered in browsers that support it (not on iPhone Safari), never in the app or an
+// installed home-screen app, which are fullscreen already.
+const fullscreenButtons = document.querySelectorAll(".fullscreen-toggle");
+const fullscreenSupported = !nativeApp && !isStandalone() && !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+function updateFullscreenButtons() {
+  const on = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  for (const button of fullscreenButtons) button.textContent = on ? "Vollbild beenden" : "Vollbild";
+}
+for (const button of fullscreenButtons) {
+  button.hidden = !fullscreenSupported;
+  button.addEventListener("click", toggleFullscreen);
+}
+document.addEventListener("fullscreenchange", updateFullscreenButtons);
+document.addEventListener("webkitfullscreenchange", updateFullscreenButtons);
+
+// Phones held upright get a full-screen "turn your device" card (see index.html); a running game
+// pauses behind it so the Wärter does not catch the player while they rotate.
+const phonePortrait = window.matchMedia?.("(orientation: portrait) and (max-width: 600px)");
+function checkOrientation() {
+  if (touchControls.enabled && !nativeApp && phonePortrait?.matches && gameState.mode === "playing") pauseGame();
+}
+phonePortrait?.addEventListener?.("change", checkOrientation);
 
 window.addEventListener("resize", onWindowResize, false);
 document.addEventListener("keydown", onGlobalKeyDown, true);
@@ -371,7 +483,7 @@ ui.noteOverlay?.addEventListener("click", (event) => {
 ui.restartButton?.addEventListener("click", restartGame);
 ui.resumeButton?.addEventListener("click", resumeGame);
 ui.pauseRestartButton?.addEventListener("click", restartGame);
-ui.settingsButton?.addEventListener("click", openSettings);
+ui.settingsButton?.addEventListener("click", () => openSettings("pause"));
 ui.settingsBackButton?.addEventListener("click", closeSettings);
 
 if (ui.volumeSlider) ui.volumeSlider.value = String(Math.round(gameState.settings.volume * 100));
@@ -435,6 +547,25 @@ document.addEventListener("visibilitychange", () => {
 });
 document.getElementById("gfx-reload-button")?.addEventListener("click", restartGame);
 
+// Debug builds of the iOS app: a periodic one-line health report for the simulator smoke test.
+if (window.Capacitor?.DEBUG) {
+  const gl = renderer.getContext();
+  const info = gl.getExtension("WEBGL_debug_renderer_info");
+  console.info("[health] gpu " + gl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : gl.RENDERER));
+  setInterval(() => console.info("[health] " + JSON.stringify({
+    frames: renderer.info.render.frame, mode: gameState.mode, pixelRatio: postFX.pixelRatio, contextLost: gl.isContextLost(),
+  })), 10000);
+}
+
+let autostart = false;
+try {
+  autostart = sessionStorage.getItem(AUTOSTART_KEY) === "1";
+  sessionStorage.removeItem(AUTOSTART_KEY);
+} catch { /* storage blocked */ }
+showMenu();
+// Restarting skips the menu and the hints; without a fresh click the mouse stays free until the next one.
+if (autostart) startGame({ lockPointer: false, intro: false });
+
 refreshUi();
 // Compile every shader now, behind the loading screen, rather than stalling the first frames.
 renderer.compile(scene, camera);
@@ -459,6 +590,7 @@ function onGlobalKeyDown(event) {
   if (event.code === "Escape") {
     if (gameState.mode === "note") { event.preventDefault(); event.stopImmediatePropagation(); interaction.closeNote(); return; }
     if (ui.settingsOverlay && ui.settingsOverlay.style.display === "flex") { event.preventDefault(); closeSettings(); return; }
+    if (gameState.mode === "menu" && [controlsOverlay, creditsOverlay].some(o => o?.style.display === "flex")) { event.preventDefault(); closeInfo(); return; }
     if (gameState.mode === "playing") { event.preventDefault(); pauseGame(); return; }
     if (gameState.mode === "paused") { event.preventDefault(); resumeGame(); return; }
     if (document.fullscreenElement) { event.preventDefault(); toggleFullscreen(); return; }
@@ -531,15 +663,23 @@ function togglePause() {
   else if (gameState.mode === "paused") resumeGame();
 }
 
-// iPhone Safari has no Fullscreen API, and older Safari returns no promise, so guard both calls.
+// iPhone Safari has no Fullscreen API, iPad Safari only the webkit-prefixed one, and older Safari
+// returns no promise, so guard every call.
 function toggleFullscreen() {
   try {
-    if (document.fullscreenElement) { document.exitFullscreen?.()?.catch?.(() => {}); return; }
-    document.documentElement.requestFullscreen?.()?.catch?.(() => {});
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+      (document.exitFullscreen || document.webkitExitFullscreen)?.call(document)?.catch?.(() => {});
+      return;
+    }
+    const root = document.documentElement;
+    (root.requestFullscreen || root.webkitRequestFullscreen)?.call(root)?.catch?.(() => {});
   } catch { /* not supported */ }
 }
 
-function restartGame() { window.location.reload(); }
+function restartGame() {
+  try { sessionStorage.setItem(AUTOSTART_KEY, "1"); } catch { /* storage blocked: back to the menu instead */ }
+  window.location.reload();
+}
 
 function pauseGame() {
   gameState.mode = "paused";
@@ -556,14 +696,16 @@ function resumeGame() {
   audioManager.context.resume().catch(() => {});
 }
 
-function openSettings() {
-  uiSet(ui.pauseOverlay, 'style.display', 'none');
+// Settings open from the pause card or the title menu and return to where they came from.
+function openSettings(from = "pause") {
+  settingsReturnTo = from === "menu" ? "menu" : "pause";
+  uiSet(settingsReturnTo === "menu" ? menuOverlay : ui.pauseOverlay, 'style.display', 'none');
   uiSet(ui.settingsOverlay, 'style.display', 'flex');
 }
 
 function closeSettings() {
   uiSet(ui.settingsOverlay, 'style.display', 'none');
-  uiSet(ui.pauseOverlay, 'style.display', 'flex');
+  uiSet(settingsReturnTo === "menu" ? menuOverlay : ui.pauseOverlay, 'style.display', 'flex');
 }
 
 let notifTimeout = null;
@@ -740,7 +882,11 @@ function triggerPresenceReaction() {
 
 function stepSimulation(deltaSeconds) {
   simulationTime += deltaSeconds;
-  if (gameState.mode !== "paused") gameState.elapsed += deltaSeconds;
+  if (gameState.mode !== "paused" && gameState.mode !== "menu") gameState.elapsed += deltaSeconds;
+  if (gameState.mode === "menu") {
+    player.euler.y = MENU_YAW + Math.sin(simulationTime * 0.13) * 0.22;
+    player.euler.x = 0.02 + Math.sin(simulationTime * 0.09) * 0.03;
+  }
 
   if (gameState.mode === "playing") {
     player.update(deltaSeconds);
@@ -889,15 +1035,16 @@ function renderFrame(deltaSeconds = 1 / 60, adapt = true) {
 }
 
 // Behind the pause, note and win cards the scene is barely visible: drawing every 4th frame there
-// saves battery and heat on phones.
+// saves battery and heat on phones. The title menu's slow drift looks fine at half rate.
 function renderInterval() {
   const mode = gameState.mode;
+  if (mode === "menu") return 2;
   return mode === "paused" || mode === "note" || mode === "won" ? 4 : 1;
 }
 
 let loadingScreen = document.getElementById("loading");
 function hideLoadingScreen() {
-  if (!loadingScreen) return;
+  if (!loadingScreen || loadingScreen.querySelector("[data-fatal]")) return;
   const el = loadingScreen;
   loadingScreen = null;
   el.classList.add("done");
@@ -917,13 +1064,18 @@ function frame(now) {
   if (++frameCount % every === 0 || frameCount === 1) {
     renderFrame(skippedTime, every === 1);
     skippedTime = 0;
+    if (frameCount === 1) console.info('[krankenhaus] first-frame');
   }
   hideLoadingScreen();
   requestAnimationFrame(frame);
 }
 
-// Playtesting & Automation hooks
-window.advanceTime = (ms) => { for (let i = 0; i < Math.max(1, Math.round(ms / 16)); i++) stepSimulation(16 / 1000); renderFrame(); };
+// Playtesting & Automation hooks. Scripted playtests skip the title menu: the simulation helpers
+// start a run first (without hints or pointer lock).
+function ensureStarted() {
+  if (gameState.mode === "menu") startGame({ lockPointer: false, intro: false });
+}
+window.advanceTime = (ms) => { ensureStarted(); for (let i = 0; i < Math.max(1, Math.round(ms / 16)); i++) stepSimulation(16 / 1000); renderFrame(); };
 
 window.sim = {
   // Direct position set (bypasses physics)
@@ -1053,7 +1205,13 @@ window.sim = {
   }
 };
 
-window.game = { scene, camera, renderer, postFX, player, level, interaction, gameState, audioManager, nav, orderly, catchPlayer };
+for (const name of ["teleport", "move", "moveTo", "walkTo", "look", "lookAt", "interact", "closeNote", "advance", "steps"]) {
+  const run = window.sim[name];
+  window.sim[name] = (...args) => { ensureStarted(); return run(...args); };
+}
+window.sim.start = ensureStarted;
+
+window.game = { scene, camera, renderer, postFX, player, level, interaction, gameState, audioManager, nav, orderly, catchPlayer, startGame };
 
 window.render_game_to_text = () => {
   const r = v => Math.round(v * 1000) / 1000;

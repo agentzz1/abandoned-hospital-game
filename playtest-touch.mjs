@@ -1,6 +1,6 @@
-// Phone playthrough checks: an iPhone-sized touch viewport drives the on-screen joystick, look
-// drag and buttons through real touch events, and saves screenshots (landscape, note, pause,
-// portrait) to the given directory.
+// Phone playthrough checks: an iPhone-sized touch viewport starts a run from the title menu, drives
+// the on-screen joystick, look drag and buttons through real touch events, and saves screenshots
+// (menu, landscape, note, pause, portrait) to the given directory.
 //   npm run build && npx vite preview --port 4173   # in another shell
 //   GAME_URL=http://localhost:4173/ CHROMIUM_PATH=/opt/pw-browsers/chromium node playtest-touch.mjs [screenshotDir]
 import { chromium } from 'playwright';
@@ -22,6 +22,17 @@ const S = () => page.evaluate(() => { const g = window.game; return { x: +g.came
 
 console.log('touch mode on:', await page.evaluate(() => document.body.classList.contains('touch')), '| phone texture set (512 px):', await page.evaluate(() => window.game.level.walls[0].material.map.image.width === 512));
 await page.evaluate(() => { window.game.gameState.settings.orderlyEnabled = false; });
+
+// The title menu comes first; the run starts with a real tap on "Spielen".
+console.log('title menu shown:', await page.locator('#menu-overlay').isVisible(), '| mode', await page.evaluate(() => window.game.gameState.mode));
+await page.screenshot({ path: SP + '/touch-menu.png' });
+{
+  const b = await page.locator('#menu-play').boundingBox();
+  await touch('touchStart', [[b.x + b.width / 2, b.y + b.height / 2, 9]]);
+  await touch('touchEnd', []);
+  await sleep(300);
+}
+console.log('Spielen tapped -> mode', await page.evaluate(() => window.game.gameState.mode), '| menu hidden:', !(await page.locator('#menu-overlay').isVisible()));
 await page.screenshot({ path: SP + '/touch-landscape.png' });
 
 // Joystick: press in the left zone and push up (forward)

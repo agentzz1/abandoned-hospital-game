@@ -4,6 +4,45 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <title>Verlassenes Krankenhaus</title>
+    <script>
+      // If the game cannot start (no WebGL, a script that fails to load, an exception during startup),
+      // the loading screen turns into a message with a reload button instead of spinning forever.
+      (function () {
+        var messages = {
+          webgl: ['3D-Grafik nicht verfügbar', 'Dieses Gerät stellt dem Spiel gerade keine 3D-Grafik (WebGL) bereit. Schließe andere Apps und versuche es noch einmal. Im Blockierungsmodus von iOS ist 3D-Grafik abgeschaltet.'],
+          error: ['Das Spiel konnte nicht starten', 'Beim Laden ist ein Fehler aufgetreten. Bitte lade das Spiel neu.']
+        };
+        function stillLoading() { return !!document.getElementById('loading'); }
+        function fatal(kind) {
+          var card = document.getElementById('loading-card');
+          if (!card || card.getAttribute('data-fatal')) return;
+          var m = messages[kind] || messages.error;
+          card.setAttribute('data-fatal', kind);
+          card.innerHTML = '<h1></h1><p class="fatal-text"></p><button type="button" id="fatal-reload">Neu laden</button>';
+          card.querySelector('h1').textContent = m[0];
+          card.querySelector('p').textContent = m[1];
+          card.querySelector('button').onclick = function () { location.reload(); };
+        }
+        window.__krankenhausFatal = fatal;
+        window.addEventListener('error', function (e) {
+          var t = e.target;
+          if (t && t !== window && t.tagName) {
+            // A resource failed to load; only a missing script stops the game.
+            if (t.tagName === 'SCRIPT' && stillLoading()) { console.error('[krankenhaus] could not load ' + (t.src || 'a script')); fatal('error'); }
+            return;
+          }
+          console.error('[krankenhaus] ' + ((e.error && e.error.stack) || e.message));
+          if (stillLoading()) fatal('error');
+        }, true);
+        window.addEventListener('unhandledrejection', function (e) {
+          var r = e.reason;
+          console.error('[unhandledrejection] ' + ((r && r.stack) || r));
+          if (stillLoading()) fatal('error');
+        });
+        // Very slow connections: after 30 s offer a reload next to the loading bar.
+        setTimeout(function () { var b = document.getElementById('loading-reload'); if (b && stillLoading()) b.hidden = false; }, 30000);
+      })();
+    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <style>
       :root {
@@ -26,6 +65,17 @@
       .overlay { position:absolute; inset:0; z-index:40; display:none; align-items:center; justify-content:center; box-sizing:border-box; pointer-events:auto;
         padding:max(12px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) max(12px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px)); }
       .card { box-sizing:border-box; max-width:100%; max-height:100%; overflow:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; }
+      [hidden] { display:none !important; }
+      /* Things that only make sense in a browser (fullscreen, install tips) are hidden in the iOS app;
+         an installed home-screen app already runs fullscreen. */
+      body.native .browser-only, body.standalone .browser-only { display:none !important; }
+      /* Safari and home-screen web apps can be turned upright; the app is locked to landscape. */
+      body.native .web-only { display:none !important; }
+      .native-only { display:none !important; }
+      body.native .native-only { display:flex !important; }
+      /* The title menu covers the scene; the in-game HUD waits until a run starts. */
+      body.in-menu #hud, body.in-menu #key-indicator, body.in-menu #timer, body.in-menu #vitals,
+      body.in-menu #compass, body.in-menu #threat-eye { display:none !important; }
 
       /* HUD */
       #hud { position:absolute; top:20px; left:20px; display:grid; gap:10px; width:min(360px,calc(100vw - 40px)); }
@@ -61,6 +111,8 @@
       #loading-card p { margin:0; font-size:13px; color:var(--muted); }
       #loading-bar { width:180px; height:2px; border-radius:1px; background:rgba(255,255,255,0.08); overflow:hidden; }
       #loading-bar::after { content:""; display:block; width:40%; height:100%; background:var(--accent); animation:loadingSweep 1.1s ease-in-out infinite; }
+      #loading-card button { margin-top:6px; background:rgba(16,19,25,0.9); color:var(--text); border:1px solid rgba(255,255,255,0.12); }
+      #loading-card .fatal-text { max-width:440px; font-size:14px; line-height:1.55; }
       @keyframes loadingSweep { from { transform:translateX(-100%); } to { transform:translateX(250%); } }
       @media (prefers-reduced-motion: reduce) { #loading-bar::after { animation:none; width:100%; opacity:0.5; } }
 
@@ -161,12 +213,39 @@
       #pause-card h2 { margin:0 0 16px; font-size:22px; color:var(--accent); }
       #pause-controls { margin:0 0 20px; padding:14px 16px; border:1px solid var(--border); border-radius:14px; background:rgba(0,0,0,0.25); }
       #pause-controls h3 { margin:0 0 10px; font-size:11px; font-weight:600; letter-spacing:0.18em; text-transform:uppercase; color:var(--muted); }
-      #pause-controls ul { margin:0; padding:0; list-style:none; display:grid; gap:8px; }
-      #pause-controls li { display:flex; justify-content:space-between; font-size:13px; color:var(--text); }
-      #pause-controls li strong { color:var(--accent); font-weight:600; }
+      .control-list { margin:0; padding:0; list-style:none; display:grid; gap:8px; }
+      .control-list li { display:flex; justify-content:space-between; gap:14px; font-size:13px; color:var(--text); }
+      .control-list li strong { color:var(--accent); font-weight:600; text-align:right; }
       #resume-button { background:linear-gradient(135deg,#1a3a2a,#0d1f18); color:var(--accent-green); box-shadow:0 10px 24px rgba(0,0,0,0.25); }
       #pause-restart-button { background:linear-gradient(135deg,#2a2520,#1a1815); color:#e8e4d8; box-shadow:0 8px 20px rgba(0,0,0,0.25); }
       #settings-button { background:linear-gradient(135deg,#1a2a3a,#0d1a24); color:var(--accent); box-shadow:0 8px 20px rgba(0,0,0,0.25); }
+      #pause-menu-button, #pause-card .fullscreen-toggle { background:rgba(255,255,255,0.05); color:var(--text); border:1px solid rgba(255,255,255,0.08); }
+
+      /* Title menu over the slowly drifting scene */
+      #menu-overlay { background:radial-gradient(ellipse 75% 85% at 50% 50%, rgba(5,6,8,0.72), rgba(5,6,8,0.95) 75%); }
+      #menu-card { width:min(560px,100%); padding:8px 4px; display:grid; gap:26px; }
+      #menu-card .eyebrow { margin:0 0 8px; font-size:11px; font-weight:600; letter-spacing:0.28em; text-transform:uppercase; color:#c9534b; }
+      #menu-title { margin:0; font-size:clamp(30px,5.2vw,52px); font-weight:700; line-height:1.04; color:#e9ecf2; text-shadow:0 2px 24px rgba(0,0,0,0.85); }
+      .menu-tagline { margin:12px 0 0; max-width:440px; font-size:15px; line-height:1.55; color:#aab4c3; text-shadow:0 1px 8px rgba(0,0,0,0.9); }
+      .menu-hint { margin:14px 0 0; max-width:460px; padding:10px 12px; border:1px solid rgba(255,255,255,0.09); border-radius:12px; background:rgba(8,10,14,0.78); font-size:12.5px; line-height:1.45; color:var(--text); }
+      .menu-hint p { margin:0; }
+      .menu-buttons { display:grid; gap:10px; }
+      .menu-buttons button { width:100%; text-align:left; padding:12px 18px; background:rgba(16,19,25,0.86); color:var(--text); border:1px solid rgba(255,255,255,0.08); }
+      .menu-buttons button.primary { background:linear-gradient(135deg,#1a3a2a,#0d1f18); color:var(--accent-green); border-color:rgba(128,192,144,0.35); font-size:16px; }
+
+      /* Controls and credits screens */
+      .info-overlay { background:rgba(0,0,0,0.86); }
+      .info-card { width:min(740px,100%); padding:26px 28px; border:1px solid rgba(255,255,255,0.08); border-radius:22px; background:linear-gradient(180deg,rgba(15,18,24,0.97),rgba(8,10,14,0.98)); box-shadow:var(--shadow); }
+      .info-card h2 { margin:0 0 14px; font-size:22px; color:var(--accent); }
+      .info-card h3 { margin:0 0 10px; font-size:11px; font-weight:600; letter-spacing:0.18em; text-transform:uppercase; color:var(--muted); }
+      .info-columns { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:18px 26px; }
+      .info-card p, .tip-list li, .credit-list li { font-size:13px; line-height:1.55; color:var(--text); }
+      .info-card p { margin:0 0 10px; }
+      .tip-list { margin:0; padding-left:18px; display:grid; gap:6px; }
+      .credit-list { margin:0 0 10px; padding:0; list-style:none; display:grid; gap:6px; }
+      .credit-list strong { display:inline-block; min-width:84px; color:var(--accent); font-weight:600; }
+      .info-links a { color:var(--accent); text-underline-offset:3px; }
+      .back-button { background:linear-gradient(135deg,#1a3a2a,#0d1f18); color:var(--accent-green); box-shadow:0 10px 24px rgba(0,0,0,0.25); }
 
       /* Settings overlay */
       #settings-overlay { background:rgba(0,0,0,0.8); -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px); }
@@ -285,10 +364,20 @@
       body.touch #intro-card .key-hint { padding:6px 10px; font-size:11px; }
       body.touch #hide-label { top:calc(64px + env(safe-area-inset-top, 0px)); }
 
-      /* Portrait phones: the game is playable but much better sideways */
-      #rotate-hint { display:none; }
-      @media (orientation: portrait) {
+      /* Portrait: phones get a full-screen "turn your device" card (the run pauses), tablets a small hint.
+         The iOS app is locked to landscape, so neither appears there. */
+      #rotate-hint, #rotate-overlay { display:none; }
+      #rotate-overlay { position:fixed; inset:0; z-index:150; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:24px; box-sizing:border-box; background:var(--bg); text-align:center; }
+      #rotate-overlay svg { width:84px; height:84px; color:var(--accent); }
+      #rotate-overlay p { margin:0; font-size:20px; font-weight:600; color:var(--text); }
+      #rotate-overlay span { font-size:14px; color:var(--muted); }
+      @media (orientation: portrait) and (max-width: 600px) {
+        body.touch #rotate-overlay { display:flex; }
+      }
+      @media (orientation: portrait) and (min-width: 601px) {
         body.touch #rotate-hint { display:block; position:absolute; left:50%; top:46%; transform:translateX(-50%); padding:8px 14px; border-radius:999px; background:rgba(8,10,14,0.8); border:1px solid var(--border); font-size:12px; color:var(--muted); white-space:nowrap; pointer-events:none; z-index:5; }
+      }
+      @media (orientation: portrait) {
         body.touch #hud { width:calc(100vw - 200px); }
         body.touch #vitals { left:calc(10px + env(safe-area-inset-left, 0px)); transform:none; top:calc(96px + env(safe-area-inset-top, 0px)); }
         body.touch #compass { bottom:calc(200px + env(safe-area-inset-bottom, 0px)); }
@@ -329,6 +418,15 @@
         #intro-card p { font-size:13px; line-height:1.5; }
         #intro-card .keys { margin-top:10px; gap:6px; }
         #intro-card .key-hint { padding:6px 10px; font-size:12px; }
+        /* Phones: keep the hints clear of the stick (left) and the buttons (right) until the first touch. */
+        body.touch #intro-overlay { align-items:flex-start;
+          padding:calc(env(safe-area-inset-top, 0px) + 92px) calc(env(safe-area-inset-right, 0px) + 180px) 12px calc(env(safe-area-inset-left, 0px) + 150px); }
+        .info-card { padding:16px 20px; }
+        .info-card h2 { font-size:19px; margin-bottom:10px; }
+        .info-card p, .tip-list li, .credit-list li { font-size:12.5px; line-height:1.45; }
+        .info-columns { gap:12px 22px; }
+        .control-list { gap:5px; }
+        #gfx-lost-card { padding:18px 20px; }
       }
       @media (max-height:500px) and (min-width:560px) {
         #pause-card { width:min(640px,100%); display:grid; grid-template-columns:minmax(0,1fr) auto; column-gap:18px; align-items:start; }
@@ -337,6 +435,11 @@
         #pause-card .action-row { flex-direction:column; align-items:stretch; margin:0; }
         #settings-card { width:min(640px,100%); }
         #settings-controls { grid-template-columns:minmax(0,1fr) minmax(0,1fr); column-gap:22px; }
+        #menu-overlay { background:radial-gradient(ellipse 90% 100% at 28% 50%, rgba(5,6,8,0.5), rgba(5,6,8,0.93) 70%); }
+        #menu-card { width:min(780px,100%); grid-template-columns:minmax(0,1.3fr) minmax(210px,0.7fr); align-items:center; gap:30px; }
+        #menu-title { font-size:clamp(28px,4.6vw,42px); }
+        .menu-tagline { font-size:14px; }
+        .menu-buttons { gap:8px; }
       }
     </style>
   </head>
@@ -346,6 +449,7 @@
         <h1>Verlassenes Krankenhaus</h1>
         <div id="loading-bar"></div>
         <p>Die Station wird vorbereitet ...</p>
+        <button id="loading-reload" type="button" hidden onclick="location.reload()">Neu laden</button>
       </div>
     </div>
     <div id="ui">
@@ -386,7 +490,12 @@
       <div id="crosshair"></div>
       <div id="interaction-prompt">E - Interagieren</div>
       <div id="notification"></div>
-      <div id="rotate-hint">Dreh dein Handy quer</div>
+      <div id="rotate-hint" class="web-only">Dreh dein Gerät quer</div>
+      <div id="rotate-overlay" class="web-only" aria-hidden="true">
+        <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><rect x="20" y="6" width="24" height="40" rx="4"/><path d="M29 40h6"/><path d="M50 30a20 20 0 0 1-18 26"/><path d="M36 52l-4 4 4 4"/></svg>
+        <p>Dreh dein Gerät quer</p>
+        <span>Das Spiel ist fürs Querformat gemacht.</span>
+      </div>
 
       <div id="catch-overlay" hidden>
         <div id="catch-text"><strong>Er hat dich erwischt.</strong><span>Was du gefunden hast, bleibt bei dir.</span></div>
@@ -429,13 +538,102 @@
         </div>
       </div>
 
+      <!-- Title menu -->
+      <div id="menu-overlay" class="overlay">
+        <div id="menu-card" class="card">
+          <div class="menu-intro">
+            <p class="eyebrow">Ein Horror-Fluchtspiel</p>
+            <h1 id="menu-title">Verlassenes Krankenhaus</h1>
+            <p class="menu-tagline">Finde zwei Schlüssel und entkomme. Der Wärter macht noch immer seine Runden.</p>
+          </div>
+          <div class="menu-buttons">
+            <button id="menu-play" type="button" class="primary">Spielen</button>
+            <button id="menu-settings" type="button">Einstellungen</button>
+            <button id="menu-controls" type="button">Steuerung</button>
+            <button id="menu-credits" type="button">Credits &amp; Datenschutz</button>
+            <button type="button" class="fullscreen-toggle browser-only" hidden>Vollbild</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controls and survival tips -->
+      <div id="controls-overlay" class="overlay info-overlay">
+        <div id="controls-card" class="card info-card">
+          <h2>Steuerung</h2>
+          <div class="info-columns">
+            <div>
+              <h3>Bedienung</h3>
+              <ul class="control-list desktop-only">
+                <li><span>Bewegen</span><strong>WASD</strong></li>
+                <li><span>Umsehen</span><strong>Maus / Pfeiltasten</strong></li>
+                <li><span>Rennen</span><strong>Shift</strong></li>
+                <li><span>Ducken</span><strong>Strg / C</strong></li>
+                <li><span>Taschenlampe</span><strong>F</strong></li>
+                <li><span>Benutzen / Spind</span><strong>E</strong></li>
+                <li><span>Ton an/aus</span><strong>M</strong></li>
+                <li><span>Pause</span><strong>Esc</strong></li>
+              </ul>
+              <ul class="control-list touch-only">
+                <li><span>Bewegen</span><strong>Linker Daumen</strong></li>
+                <li><span>Rennen</span><strong>Stick ganz nach außen</strong></li>
+                <li><span>Umsehen</span><strong>Rechts wischen</strong></li>
+                <li><span>Aufheben, lesen, Spind</span><strong>Benutzen</strong></li>
+                <li><span>Taschenlampe</span><strong>Lampe</strong></li>
+                <li><span>Leise schleichen</span><strong>Ducken</strong></li>
+                <li><span>Pause</span><strong>II oben rechts</strong></li>
+              </ul>
+            </div>
+            <div>
+              <h3>So überlebst du</h3>
+              <ul class="tip-list">
+                <li>Der Wärter hört dich rennen und sieht deine Lampe von Weitem.</li>
+                <li>Geduckt und ohne Licht bemerkt er dich kaum.</li>
+                <li>Hat er dich entdeckt: Brich den Blickkontakt und versteck dich in einem Spind.</li>
+                <li>Erwischt er dich, behältst du alles, was du gefunden hast.</li>
+                <li>Batterien laden die Lampe auf.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="action-row">
+            <button type="button" class="back-button">Zurück</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Credits and privacy -->
+      <div id="credits-overlay" class="overlay info-overlay">
+        <div id="credits-card" class="card info-card">
+          <h2>Credits &amp; Datenschutz</h2>
+          <div class="info-columns">
+            <div>
+              <h3>Datenschutz</h3>
+              <p>Das Spiel sammelt keine personenbezogenen Daten. Es gibt kein Konto, keine Werbung, keine Analyse und kein Tracking. Einstellungen und Bestzeiten werden nur auf diesem Gerät gespeichert und nirgendwohin übertragen.</p>
+              <p class="info-links"><a href="./privacy.html" target="_blank" rel="noopener" data-site-link>Datenschutzerklärung</a> · <a href="./support.html" target="_blank" rel="noopener" data-site-link>Hilfe &amp; Kontakt</a></p>
+            </div>
+            <div>
+              <h3>Credits</h3>
+              <ul class="credit-list">
+                <li><strong>3D-Engine</strong> three.js (MIT-Lizenz)</li>
+                <li><strong>Schriften</strong> Inter, JetBrains Mono (SIL Open Font License 1.1)</li>
+                <li><strong>Texturen</strong> Poly Haven (CC0)</li>
+                <li><strong>Klänge</strong> werden im Spiel erzeugt</li>
+              </ul>
+              <p class="info-links"><a href="./LICENSES.txt" target="_blank" rel="noopener" data-site-link>Lizenztexte</a> · Version <span id="app-version">1.0.0</span></p>
+            </div>
+          </div>
+          <div class="action-row">
+            <button type="button" class="back-button">Zurück</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Pause overlay -->
       <div id="pause-overlay" class="overlay">
         <div id="pause-card" class="card">
           <h2>Pausiert</h2>
           <div id="pause-controls">
             <h3>Steuerung</h3>
-            <ul class="desktop-only">
+            <ul class="control-list desktop-only">
               <li><span>Bewegen</span><strong>WASD</strong></li>
               <li><span>Umsehen</span><strong>Maus / Pfeiltasten</strong></li>
               <li><span>Rennen</span><strong>Shift</strong></li>
@@ -446,7 +644,7 @@
               <li><span>Vollbild</span><strong>O</strong></li>
               <li><span>Pause</span><strong>Esc</strong></li>
             </ul>
-            <ul class="touch-only">
+            <ul class="control-list touch-only">
               <li><span>Bewegen</span><strong>Linker Daumen</strong></li>
               <li><span>Rennen</span><strong>Stick ganz raus</strong></li>
               <li><span>Umsehen</span><strong>Rechts wischen</strong></li>
@@ -458,6 +656,8 @@
             <button id="resume-button" type="button">Fortsetzen</button>
             <button id="settings-button" type="button">Einstellungen</button>
             <button id="pause-restart-button" type="button">Neu starten</button>
+            <button id="pause-menu-button" type="button">Hauptmenü</button>
+            <button type="button" class="fullscreen-toggle browser-only" hidden>Vollbild</button>
           </div>
         </div>
       </div>
