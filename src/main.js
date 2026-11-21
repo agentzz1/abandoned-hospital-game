@@ -10,6 +10,7 @@ import { TouchControls } from './TouchControls.js';
 import { loadMaterials } from './Materials.js';
 import { haptic, isNativeApp, setHapticsEnabled, warmUpHaptics } from './Native.js';
 import { isIOS, isStandalone } from './Platform.js';
+import { setUpOffline, watchInstallPrompt } from './Pwa.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 // One line each at startup and after the first rendered frame; the iOS simulator smoke test looks for them.
@@ -453,6 +454,9 @@ try {
   if (soundHint && (isIOS() || nativeApp) && localStorage.getItem(SOUND_HINT_KEY) !== "1") soundHint.hidden = false;
 } catch { /* storage blocked: no hint */ }
 document.getElementById("sound-hint-ok")?.addEventListener("click", rememberSoundHint);
+// Safari on iPhone and iPad has no install prompt: explain the home-screen route instead.
+uiSet(document.getElementById("install-hint"), 'hidden', !(isIOS() && !isStandalone() && !nativeApp));
+watchInstallPrompt(document.getElementById("menu-install"));
 
 document.getElementById("menu-play")?.addEventListener("click", () => startGame());
 document.getElementById("menu-settings")?.addEventListener("click", () => openSettings("menu"));
@@ -1092,7 +1096,11 @@ function frame(now) {
   if (++frameCount % every === 0 || frameCount === 1) {
     renderFrame(skippedTime, every === 1);
     skippedTime = 0;
-    if (frameCount === 1) console.info('[krankenhaus] first-frame');
+    if (frameCount === 1) {
+      console.info('[krankenhaus] first-frame');
+      // Everything the game needs has loaded by now; the service worker can store it for offline play.
+      setTimeout(setUpOffline, 1500);
+    }
   }
   hideLoadingScreen();
   requestAnimationFrame(frame);

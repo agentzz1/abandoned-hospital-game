@@ -4,6 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <title>Verlassenes Krankenhaus</title>
+    <meta name="description" content="Ein Horror-Fluchtspiel: Finde zwei Schlüssel und entkomme dem Wärter." />
+    <meta name="theme-color" content="#050608" />
+    <meta name="color-scheme" content="dark" />
+    <!-- Installable web app: home-screen name "Krankenhaus", fullscreen without browser bars. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Krankenhaus" />
     <script>
       // If the game cannot start (no WebGL, a script that fails to load, an exception during startup),
       // the loading screen turns into a message with a reload button instead of spinning forever.
@@ -43,7 +55,6 @@
         setTimeout(function () { var b = document.getElementById('loading-reload'); if (b && stillLoading()) b.hidden = false; }, 30000);
       })();
     </script>
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <style>
       :root {
         --bg: #050608; --text: #d8dce5; --muted: #6b7585;
@@ -549,6 +560,7 @@
             <p class="eyebrow">Ein Horror-Fluchtspiel</p>
             <h1 id="menu-title">Verlassenes Krankenhaus</h1>
             <p class="menu-tagline">Finde zwei Schlüssel und entkomme. Der Wärter macht noch immer seine Runden.</p>
+            <p id="install-hint" class="menu-hint browser-only" hidden>Tipp: Über „Teilen“ und „Zum Home-Bildschirm“ startet das Spiel wie eine App, im Vollbild und auch offline.</p>
             <div id="sound-hint" class="menu-hint" hidden>
               <p><strong>Kein Ton?</strong> Im Lautlos-Modus (Schalter oder Aktionstaste) bleibt das Spiel stumm. Am besten mit Kopfhörern spielen.</p>
               <button id="sound-hint-ok" type="button">Verstanden</button>
@@ -559,6 +571,7 @@
             <button id="menu-settings" type="button">Einstellungen</button>
             <button id="menu-controls" type="button">Steuerung</button>
             <button id="menu-credits" type="button">Credits &amp; Datenschutz</button>
+            <button id="menu-install" type="button" class="browser-only" hidden>App installieren</button>
             <button type="button" class="fullscreen-toggle browser-only" hidden>Vollbild</button>
           </div>
         </div>
